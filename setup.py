@@ -10,19 +10,23 @@ def git_version():
     # Full version includes the Git commit hash
     full_version = subprocess.check_output('git describe --dirty', shell=True).decode("utf-8").strip(" \n")
 
-    # Standardized version in form major.minor.patch-build
-    p = re.compile("v?(\d+\.\d+\.\d+(-\d+)?).*")
-    m = p.match(full_version)
-    if m is not None:
-        std_version = m.group(1).replace("-", ".dev")
+    # Python standardized version in form major.minor.patch.dev<build>
+    version_regex = re.compile(r"v?(\d+\.\d+\.\d+(-\d+)?).*")
+    match = version_regex.match(full_version)
+    if match:
+        std_version = match.group(1).replace("-", ".dev")
     else:
         raise RuntimeError("Failed to parse version string %s" % full_version)
 
     return full_version, std_version
 
-def set_python_version(rootdir, version):
-    vfile = open(os.path.join(rootdir, "fabber", "_version.py"), "w")
-    vfile.write("__version__='%s'" % version)
+def git_timestamp():
+    return subprocess.check_output('git log -1 --format=%cd', shell=True).decode("utf-8").strip(" \n")
+
+def set_metadata(module_dir, version_str, timestamp_str):
+    vfile = open(os.path.join(module_dir, "fabber", "_version.py"), "w")
+    vfile.write("__version__ = '%s'\n" % version_str)
+    vfile.write("__timestamp__ = '%s'\n" % timestamp_str)
     vfile.close()
 
 # Read in requirements from the requirements.txt file.
@@ -33,8 +37,9 @@ with open('requirements.txt', 'rt') as f:
 packages = find_packages()
 
 rootdir = os.path.join(os.path.abspath(os.path.dirname(__file__)))
-fullv, stdv = git_version()
-set_python_version(rootdir, stdv)
+_, stdv = git_version()
+timestamp = git_timestamp()
+set_metadata(rootdir, stdv, timestamp)
 
 setup(
     name='pyfab',
