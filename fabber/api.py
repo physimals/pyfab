@@ -176,16 +176,27 @@ class Fabber(object):
     """
     Interface to Fabber in library mode using simplified C API
     """
+
+    OPT_BOOL       = "BOOL"
+    OPT_STR        = "STR"
+    OPT_INT        = "INT",
+    OPT_FLOAT      = "FLOAT"
+    OPT_FILE       = "FILE"
+    OPT_IMAGE      = "IMAGE"
+    OPT_TIMESERIES = "TIMESERIES"
+    OPT_MVN        = "MVN"
+    OPT_MATRIX     = "MATRIX"
+
     def __init__(self, core_lib=None, model_libs=None):
         self.ex, self.core_lib, self.model_libs = find_fabber()
-            
+
         if core_lib:
             self.core_lib = core_lib
 
         if self.core_lib is None or not os.path.isfile(self.core_lib):
             raise FabberException("Invalid core library - file not found: %s" % self.core_lib)
 
-        if model_libs:
+        if model_libs is not None:
             self.model_libs = set(model_libs)
 
         for lib in self.model_libs:
@@ -217,41 +228,51 @@ class Fabber(object):
         self._trycall(self._clib.fabber_get_models, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
         return self._outbuf.value.splitlines()
 
-    def get_options(self, method=None, model=None):
+    def get_options(self, generic=None, method=None, model=None):
         """
         Get known Fabber options
 
         :param method: If specified, return options for this method
         :param model: If specified, return options for this model
+        :param generic: If True, return generic Fabber options
 
-        Only one of method and model should be specified. If neither are specified, generic
-        Fabber options are returned.
+        If no parameters are specified, generic options only are returned
 
-        :return: Tuple of options, description. Options is a list of options, each in the form of a dictionary.
-        Description is a simple text description of the method or model
+        :return: Tuple of options, method description, model_description, generic_description. 
+                 Descriptions are only included if relevant options were requestsed. Options 
+                 is a list of options, each in the form of a dictionary.
+                 Descriptions are simple text descriptions of the method or model
         """
-        if method and model:
-            raise ValueError("get_options: Can't get options for method and model at same time")
-        elif method:
-            key = "method"
-            value = method
-        elif model:
-            key = "model"
-            value = model
-        else:
-            key = None
-            value = None
+        if generic is None:
+            # For backwards compatibility - no params = generic
+            generic = not method and not model
 
-        self._trycall(self._clib.fabber_get_options, self._handle, key, value, len(self._outbuf), self._outbuf, self._errbuf)
+        ret, all_lines = [], []
+        if method:
+            self._trycall(self._clib.fabber_get_options, self._handle, "method", method, len(self._outbuf), self._outbuf, self._errbuf)
+            lines = self._outbuf.value.split("\n")
+            ret.append(lines[0])
+            all_lines += lines[1:]
+        if model:
+            self._trycall(self._clib.fabber_get_options, self._handle, "model", model, len(self._outbuf), self._outbuf, self._errbuf)
+            lines = self._outbuf.value.split("\n")
+            ret.append(lines[0])
+            all_lines += lines[1:]
+        if generic:
+            self._trycall(self._clib.fabber_get_options, self._handle, None, None, len(self._outbuf), self._outbuf, self._errbuf)
+            lines = self._outbuf.value.split("\n")
+            ret.append(lines[0])
+            all_lines += lines[1:]
+        
         opt_keys = ["name", "description", "type", "optional", "default"]
         opts = []
-        lines = self._outbuf.value.split("\n")
-        for opt in lines[1:]:
+        for opt in all_lines[1:]:
             if opt:
                 opt = dict(zip(opt_keys, opt.split("\t")))
                 opt["optional"] = opt["optional"] == "1"
                 opts.append(opt)
-        return opts, lines[0]
+        ret.insert(0, opts)
+        return tuple(ret)
 
     def get_model_params(self, options):
         """ 
@@ -419,11 +440,11 @@ class Fabber(object):
         elif key.startswith("PSP_byname") and key.endswith("_image"):
             return True
         else:
-            model_data_options = [option["name"] for option in model_options if option["type"] in ("IMAGE", "TIMESERIES")]
+            model_data_options = [option["name"] for option in model_options if option["type"] in (self.IMAGE, self.TIMESERIES)]
             return key in model_data_options
 
     def _is_matrix_option(self, key, model_options):
-        return key in [option["name"] for option in model_options if option["type"] == "MATRIX"]
+        return key in [option["name"] for option in model_options if option["type"] == self.MATRIX]
 
     def _init_run(self, options):
         self._init_handle()
