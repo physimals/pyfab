@@ -20,21 +20,22 @@ def _to_value_seq(values):
     try:
         val = float(values)
         return [val,]
-    except ValueError:
+    except (ValueError, TypeError):
         return values
 
-def self_test(model, rundata, param_testvalues, save_input=False, save_output=False, disp=True, invert=True, outfile_format="test_data_%s", **kwargs):
+def self_test(model, options, param_testvalues, save_input=False, save_output=False, disp=True, invert=True, outfile_format="test_data_%s", **kwargs):
     """
     Run a self test on a model
     
     This consists of generating a test data set using specified parameter values, adding optional noise and then running the model
     fit on the test data
     """
+    fab = Fabber(**kwargs)
     if disp: print("Running self test for model %s" % model)
     ret = {}
-    rundata["model"] = model
-    data, cleandata, roidata = generate_test_data(rundata, param_testvalues, param_rois=True, auto_load_models=True, **kwargs)
-    
+    options["model"] = model
+    test_data = generate_test_data(fab, options, param_testvalues, param_rois=True, **kwargs)
+    data, cleandata, roidata = test_data["data"], test_data["clean"], test_data["param-rois"]
     if save_input:
         outfile = outfile_format % model
         if disp: print("Saving test data to Nifti file: %s" % outfile)
@@ -52,17 +53,16 @@ def self_test(model, rundata, param_testvalues, save_input=False, save_output=Fa
     if invert:
         if disp: sys.stdout.write("Inverting test data - running Fabber:  0%%")
         sys.stdout.flush()
-        fab = Fabber()
-        if "method" not in rundata: rundata["method"] = "vb"
-        if "noise" not in rundata: rundata["noise"] = "white"
-        rundata["save-mean"] = ""
-        rundata["save-noise-mean"] = ""
-        rundata["save-noise-std"] = ""
-        rundata["save-model-fit"] = ""
-        rundata["allow-bad-voxels"] = ""
+        if "method" not in options: options["method"] = "vb"
+        if "noise" not in options: options["noise"] = "white"
+        options["save-mean"] = ""
+        options["save-noise-mean"] = ""
+        options["save-noise-std"] = ""
+        options["save-model-fit"] = ""
+        options["allow-bad-voxels"] = ""
         if disp: progress_cb = percent_progress()
         else: progress_cb = None
-        run = fab.run_with_data(rundata, {"data" : data}, progress_cb=progress_cb)
+        run = fab.run_with_data(options, {"data" : data}, progress_cb=progress_cb)
         if disp: print("\n")
         log = run.log
         if save_output:
@@ -93,8 +93,7 @@ def self_test(model, rundata, param_testvalues, save_input=False, save_output=Fa
         sys.stdout.flush()
     return ret, log
 
-def generate_test_data(rundata, param_testvalues, nt=10, patchsize=10, 
-                       noise=None, patch_rois=False, param_rois=False, **kwargs):
+def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, noise=None, patch_rois=False, param_rois=False):
     """ 
     Generate a test Nifti image based on model evaluations
 
@@ -123,13 +122,14 @@ def generate_test_data(rundata, param_testvalues, nt=10, patchsize=10,
 
     shape = [d * patchsize for d in dim_sizes]
     data = np.zeros(shape + [nt,])
-    if patch_rois: patch_roi_data = np.zeros(shape)
+    if patch_rois: 
+        patch_roi_data = np.zeros(shape)
+
     if param_rois:
         param_roi_data = {}
         for param in dim_params:
             if param is not None: 
                 param_roi_data[param] = np.zeros(shape)
-    fab = Fabber(**kwargs)
 
     # I bet there's a neater way to do this!
     patch_label = 1
@@ -143,25 +143,24 @@ def generate_test_data(rundata, param_testvalues, nt=10, patchsize=10,
                         fixed_params[param] = param_value
                         if param_rois:
                             param_roi_data[param][x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize] = pos[idx]+1
-                model_curve = fab.model_evaluate(rundata, fixed_params, nt)
+                model_curve = api.model_evaluate(options, fixed_params, nt)
                 
                 data[x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize, :] = model_curve
-                #if noise is not None:
-                #    # Add Gaussian noise
-                #    signal_mean = np.mean(model_curve)
-                #    noise_data = np.random.normal(0, signal_mean*noise, [patchsize, patchsize, patchsize, nt])
-                #    data[x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize,:] += noise_data
                 if patch_rois: 
                     patch_roi_data[x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize] = patch_label
                     patch_label += 1
 
+    ret = {"clean" : data}
     if noise is not None:
         # Add Gaussian noise
         #mean_signal = np.mean(data)
         noise = np.random.normal(0, noise, shape + [nt,])
         noisy_data = data + noise
+        ret["data"] = noisy_data
+    else:
+        ret["data"] = data
 
-    ret = [noisy_data, data,] 
-    if patch_rois: ret.append(patch_roi_data)
-    if param_rois: ret.append(param_roi_data)
-    return tuple(ret)
+    if patch_rois: ret["patch-rois"] = patch_roi_data
+    if param_rois: ret["param-rois"] = param_roi_data
+
+    return ret
