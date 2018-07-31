@@ -177,15 +177,15 @@ class Fabber(object):
     Interface to Fabber in library mode using simplified C API
     """
 
-    OPT_BOOL       = "BOOL"
-    OPT_STR        = "STR"
-    OPT_INT        = "INT",
-    OPT_FLOAT      = "FLOAT"
-    OPT_FILE       = "FILE"
-    OPT_IMAGE      = "IMAGE"
-    OPT_TIMESERIES = "TIMESERIES"
-    OPT_MVN        = "MVN"
-    OPT_MATRIX     = "MATRIX"
+    BOOL       = "BOOL"
+    STR        = "STR"
+    INT        = "INT",
+    FLOAT      = "FLOAT"
+    FILE       = "FILE"
+    IMAGE      = "IMAGE"
+    TIMESERIES = "TIMESERIES"
+    MVN        = "MVN"
+    MATRIX     = "MATRIX"
 
     def __init__(self, core_lib=None, model_libs=None):
         self.ex, self.core_lib, self.model_libs = find_fabber()
@@ -266,7 +266,7 @@ class Fabber(object):
         
         opt_keys = ["name", "description", "type", "optional", "default"]
         opts = []
-        for opt in all_lines[1:]:
+        for opt in all_lines:
             if opt:
                 opt = dict(zip(opt_keys, opt.split("\t")))
                 opt["optional"] = opt["optional"] == "1"
@@ -336,9 +336,9 @@ class Fabber(object):
             raise ValueError("Main voxel data not provided")
 
         input_data = {}
-        model_options, _ = self.get_options(model=options.get("model", "poly"))
+        model_options = self.get_options(model=options.get("model", "poly"))[0]
         for key in options.keys():
-            if self._is_data_option(key, model_options):
+            if self.is_data_option(key, model_options):
                 # Allow input data to be given as Numpy array, Nifti image or filename
                 value = options.pop(key)
                 if value is None:
@@ -434,14 +434,13 @@ class Fabber(object):
                     tempf.write("%f\n" % row)
             return tempf.name
         
-    def _is_data_option(self, key, model_options):
+    def is_data_option(self, key, options):
         if key in ("data", "mask", "suppdata", "continue-from-mvn"):
             return True
         elif key.startswith("PSP_byname") and key.endswith("_image"):
             return True
         else:
-            model_data_options = [option["name"] for option in model_options if option["type"] in (self.IMAGE, self.TIMESERIES)]
-            return key in model_data_options
+            return key in [option["name"] for option in options if option["type"] in (self.IMAGE, self.TIMESERIES)]
 
     def _is_matrix_option(self, key, model_options):
         return key in [option["name"] for option in model_options if option["type"] == self.MATRIX]
@@ -472,8 +471,9 @@ class Fabber(object):
             if value is None: continue
                 
             # Key separators can be specified as underscores or hyphens as hyphens are not allowed in Python
-            # keywords. They are always passed as hyphens
-            key = key.replace("_", "-")
+            # keywords. They are always passed as hyphens except for the anomolous PSP_byname options
+            if not key.startswith("PSP_"):
+                key = key.replace("_", "-")
 
             # Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
             # value True, the actual option value passed must be blank
