@@ -281,7 +281,7 @@ class Fabber(object):
         :param options: Options dictionary
         :return: Sequence of model parameter names
         """
-        return self._init_run(options)[0]
+        return self._init_run(options)[1]
         
     def get_model_outputs(self, options):
         """ 
@@ -290,7 +290,7 @@ class Fabber(object):
         :param options: Fabber options
         :return: Sequence of names of additional model timeseries outputs
         """
-        return self._init_run(options)[1]
+        return self._init_run(options)[2]
 
     def model_evaluate(self, options, param_values, nvols, indata=None):
         """
@@ -301,7 +301,7 @@ class Fabber(object):
         :param nvols: Length of output array - equivalent to number of volumes in input data set
         """
         # Get model parameter names and form a sequence of the values provided for them
-        params, _ = self._init_run(options)
+        _, params, _ = self._init_run(options)
 
         plist = []
         for param in params:
@@ -335,44 +335,9 @@ class Fabber(object):
         if not options.has_key("data"):
             raise ValueError("Main voxel data not provided")
 
-        input_data = {}
-        model_options = self.get_options(model=options.get("model", "poly"))[0]
-        for key in options.keys():
-            if self.is_data_option(key, model_options):
-                # Allow input data to be given as Numpy array, Nifti image or filename
-                value = options.pop(key)
-                if value is None:
-                    pass
-                elif isinstance(value, nib.Nifti1Image):
-                    input_data[key] = value.get_data()
-                elif isinstance(value, six.string_types):
-                    input_data[key] = nib.load(value).get_data()
-                elif isinstance(value, np.ndarray):
-                    input_data[key] = value
-                else:
-                    raise ValueError("Unsupported type for input data: %s = %s" % (key, type(value)))
-            elif self._is_matrix_option(key, model_options):
-                # Input matrices can be given as Numpy arrays or sequences but must be
-                # passed to fabber as file names
-                value = options.get(key)
-                if isinstance(value, six.string_types):
-                    pass
-                elif isinstance(value, np.ndarray):
-                    options[key] = self._write_temp_matrix(value)
-                elif isinstance(value, collections.Sequence):
-                    options[key] = self._write_temp_matrix(value)
-                else:
-                    raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
-
         # Initialize the run, set the options and return the model parameters
-        params, outputs = self._init_run(options)
-
-        shape = input_data["data"].shape
+        shape, params, extra_outputs = self._init_run(options)
         nvoxels = shape[0] * shape[1] * shape[2]
-
-        # Make mask suitable for passing to int* c function
-        mask = input_data.pop("mask", np.ones(nvoxels))
-        mask = np.ascontiguousarray(mask.flatten(order='F'), dtype=np.int32)
 
         output_items = []
         if "save-mean" in options:
@@ -394,22 +359,13 @@ class Fabber(object):
         if "save-mvn" in options:
             output_items.append("finalMVN")
         if "save-model-extras" in options:
-            output_items += outputs
-
-        retdata, log = {}, ""
-        self._trycall(self._clib.fabber_set_extent, self._handle, shape[0], shape[1], shape[2], mask, self._errbuf)
-        for key, item in input_data.items():
-            if len(item.shape) == 3:
-                size = 1
-            else:
-                size = item.shape[3]
-            item = np.ascontiguousarray(item.flatten(order='F'), dtype=np.float32)
-            self._trycall(self._clib.fabber_set_data, self._handle, key, size, item, self._errbuf)
+            output_items += extra_outputs
 
         progress_cb_func = self._progress_cb_type(0)
         if progress_cb is not None:
             progress_cb_func = self._progress_cb_type(progress_cb)
 
+        retdata, log = {}, ""
         self._trycall(self._clib.fabber_dorun, self._handle, len(self._outbuf), self._outbuf, self._errbuf, progress_cb_func)
         log = self._outbuf.value
         for key in output_items:
@@ -446,13 +402,14 @@ class Fabber(object):
         return key in [option["name"] for option in model_options if option["type"] == self.MATRIX]
 
     def _init_run(self, options):
+        options = dict(options)
         self._init_handle()
-        self._set_options(options)
+        shape = self._set_options(options)
         self._trycall(self._clib.fabber_get_model_params, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
         params = self._outbuf.value.splitlines()
         self._trycall(self._clib.fabber_get_model_outputs, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        outputs = self._outbuf.value.splitlines()
-        return params, outputs
+        extra_outputs = self._outbuf.value.splitlines()
+        return shape, params, extra_outputs
 
     def _init_handle(self):
         # This is required because currently there is no CAPI function to clear the options.
@@ -466,6 +423,37 @@ class Fabber(object):
             self._trycall(self._clib.fabber_load_models, self._handle, lib, self._errbuf)
 
     def _set_options(self, options):
+        # Separate out data options from 'normal' options
+        data_options = {}
+        model_options = self.get_options(model=options.get("model", "poly"))[0]
+        for key in options.keys():
+            if self.is_data_option(key, model_options):
+                # Allow input data to be given as Numpy array, Nifti image or filename
+                value = options.pop(key)
+                if value is None:
+                    pass
+                elif isinstance(value, nib.Nifti1Image):
+                    data_options[key] = value.get_data()
+                elif isinstance(value, six.string_types):
+                    data_options[key] = nib.load(value).get_data()
+                elif isinstance(value, np.ndarray):
+                    data_options[key] = value
+                else:
+                    raise ValueError("Unsupported type for input data: %s = %s" % (key, type(value)))
+            elif self._is_matrix_option(key, model_options):
+                # Input matrices can be given as Numpy arrays or sequences but must be
+                # passed to fabber as file names
+                value = options.get(key)
+                if isinstance(value, six.string_types):
+                    pass
+                elif isinstance(value, np.ndarray):
+                    options[key] = self._write_temp_matrix(value)
+                elif isinstance(value, collections.Sequence):
+                    options[key] = self._write_temp_matrix(value)
+                else:
+                    raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
+
+        # Set 'normal' options (i.e. not data items)
         for key, value in options.items():
             # Options with 'None' values are ignored
             if value is None: continue
@@ -483,7 +471,33 @@ class Fabber(object):
                 else:
                     continue
             self._trycall(self._clib.fabber_set_opt, self._handle, str(key), str(value), self._errbuf)
+
+        # Shape comes from the main data, or if not present (e.g. during model_evaluate), take
+        # shape from any data item or as single-voxel volume
+        if "data" in data_options:
+            shape = data_options["data"].shape
+        elif data_options:
+            shape = data_options[data_options.keys()[0]].shape
+        else:
+            shape = (1, 1, 1)
+        nvoxels = shape[0] * shape[1] * shape[2]
+
+        # Make mask suitable for passing to int* c function
+        mask = data_options.pop("mask", np.ones(nvoxels))
+        mask = np.ascontiguousarray(mask.flatten(order='F'), dtype=np.int32)
+
+        # Set data options
+        self._trycall(self._clib.fabber_set_extent, self._handle, shape[0], shape[1], shape[2], mask, self._errbuf)
+        for key, item in data_options.items():
+            if len(item.shape) == 3:
+                size = 1
+            else:
+                size = item.shape[3]
+            item = np.ascontiguousarray(item.flatten(order='F'), dtype=np.float32)
+            self._trycall(self._clib.fabber_set_data, self._handle, key, size, item, self._errbuf)
         
+        return shape
+
     def _destroy_handle(self):
         if hasattr(self, "_handle"):
             if self._handle:
