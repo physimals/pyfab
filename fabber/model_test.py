@@ -30,7 +30,7 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
     This consists of generating a test data set using specified parameter values, adding optional noise and then running the model
     fit on the test data
     """
-    fab = Fabber(**kwargs)
+    fab = Fabber()
     if disp: print("Running self test for model %s" % model)
     ret = {}
     options["model"] = model
@@ -62,7 +62,8 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
         options["allow-bad-voxels"] = ""
         if disp: progress_cb = percent_progress()
         else: progress_cb = None
-        run = fab.run_with_data(options, {"data" : data}, progress_cb=progress_cb)
+        options["data"] = data
+        run = fab.run(options, progress_cb=progress_cb)
         if disp: print("\n")
         log = run.log
         if save_output:
