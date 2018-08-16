@@ -2,3 +2,5 @@ fabber/_version.py
 build
 *.pyc
 .cache
+dist
+pyfab.egg-info
