@@ -4,3 +4,4 @@ build
 .cache
 dist
 pyfab.egg-info
+.pytest_cache
