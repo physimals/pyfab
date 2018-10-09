@@ -177,15 +177,15 @@ class Fabber(object):
     Interface to Fabber in library mode using simplified C API
     """
 
-    BOOL       = "BOOL"
-    STR        = "STR"
-    INT        = "INT",
-    FLOAT      = "FLOAT"
-    FILE       = "FILE"
-    IMAGE      = "IMAGE"
+    BOOL = "BOOL"
+    STR = "STR"
+    INT = "INT",
+    FLOAT = "FLOAT"
+    FILE = "FILE"
+    IMAGE = "IMAGE"
     TIMESERIES = "TIMESERIES"
-    MVN        = "MVN"
-    MATRIX     = "MATRIX"
+    MVN = "MVN"
+    MATRIX = "MATRIX"
 
     def __init__(self, core_lib=None, model_libs=None):
         self.ex, self.core_lib, self.model_libs = find_fabber()
@@ -370,7 +370,6 @@ class Fabber(object):
         log = self._outbuf.value
         for key in output_items:
             size = self._trycall(self._clib.fabber_get_data_size, self._handle, key, self._errbuf)
-
             arr = np.ascontiguousarray(np.empty(nvoxels * size, dtype=np.float32))
             self._trycall(self._clib.fabber_get_data, self._handle, key, arr, self._errbuf)
             if size > 1:
@@ -391,12 +390,18 @@ class Fabber(object):
             return tempf.name
         
     def is_data_option(self, key, options):
+        """
+        :param key: Option name
+        :param options: Options as key/value dict
+
+        :return: True if ``key`` is a voxel data option
+        """ 
         if key in ("data", "mask", "suppdata", "continue-from-mvn"):
             return True
         elif key.startswith("PSP_byname") and key.endswith("_image"):
             return True
         else:
-            return key in [option["name"] for option in options if option["type"] in (self.IMAGE, self.TIMESERIES)]
+            return key in [option["name"] for option in options if option["type"] in (self.IMAGE, self.TIMESERIES, self.MVN)]
 
     def _is_matrix_option(self, key, model_options):
         return key in [option["name"] for option in model_options if option["type"] == self.MATRIX]
