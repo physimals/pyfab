@@ -217,7 +217,7 @@ class Fabber(object):
         :return: Sequence of known inference method names
         """
         self._trycall(self._clib.fabber_get_methods, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        return self._outbuf.value.splitlines()
+        return self._outbuf.value.decode("UTF-8").splitlines()
 
     def get_models(self):
         """ 
@@ -226,7 +226,7 @@ class Fabber(object):
         :return: Sequence of known model names
         """
         self._trycall(self._clib.fabber_get_models, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        return self._outbuf.value.splitlines()
+        return self._outbuf.value.decode("UTF-8").splitlines()
 
     def get_options(self, generic=None, method=None, model=None):
         """
@@ -250,17 +250,17 @@ class Fabber(object):
         ret, all_lines = [], []
         if method:
             self._trycall(self._clib.fabber_get_options, self._handle, "method", method, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.split("\n")
+            lines = self._outbuf.value.decode("UTF-8").split("\n")
             ret.append(lines[0])
             all_lines += lines[1:]
         if model:
             self._trycall(self._clib.fabber_get_options, self._handle, "model", model, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.split("\n")
+            lines = self._outbuf.value.decode("UTF-8").split("\n")
             ret.append(lines[0])
             all_lines += lines[1:]
         if generic:
             self._trycall(self._clib.fabber_get_options, self._handle, None, None, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.split("\n")
+            lines = self._outbuf.value.decode("UTF-8").split("\n")
             ret.append(lines[0])
             all_lines += lines[1:]
         
@@ -332,7 +332,7 @@ class Fabber(object):
 
         :return: On success, a FabberRun instance
         """
-        if not options.has_key("data"):
+        if not "data" in options:
             raise ValueError("Main voxel data not provided")
 
         # Initialize the run, set the options and return the model parameters
@@ -367,7 +367,7 @@ class Fabber(object):
 
         retdata, log = {}, ""
         self._trycall(self._clib.fabber_dorun, self._handle, len(self._outbuf), self._outbuf, self._errbuf, progress_cb_func)
-        log = self._outbuf.value
+        log = self._outbuf.value.decode("UTF-8")
         for key in output_items:
             size = self._trycall(self._clib.fabber_get_data_size, self._handle, key, self._errbuf)
             arr = np.ascontiguousarray(np.empty(nvoxels * size, dtype=np.float32))
@@ -411,9 +411,9 @@ class Fabber(object):
         self._init_handle()
         shape = self._set_options(options)
         self._trycall(self._clib.fabber_get_model_params, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        params = self._outbuf.value.splitlines()
+        params = self._outbuf.value.decode("UTF-8").splitlines()
         self._trycall(self._clib.fabber_get_model_outputs, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        extra_outputs = self._outbuf.value.splitlines()
+        extra_outputs = self._outbuf.value.decode("UTF-8").splitlines()
         return shape, params, extra_outputs
 
     def _init_handle(self):
@@ -422,7 +422,7 @@ class Fabber(object):
         self._destroy_handle()    
         self._handle = self._clib.fabber_new(self._errbuf)
         if self._handle is None:
-            raise RuntimeError("Error creating fabber context (%s)" % self._errbuf.value)
+            raise RuntimeError("Error creating fabber context (%s)" % self._errbuf.value.decode("UTF-8"))
 
         for lib in self.model_libs:
             self._trycall(self._clib.fabber_load_models, self._handle, lib, self._errbuf)
@@ -431,7 +431,7 @@ class Fabber(object):
         # Separate out data options from 'normal' options
         data_options = {}
         model_options = self.get_options(model=options.get("model", "poly"))[0]
-        for key in options.keys():
+        for key in list(options.keys()):
             if self.is_data_option(key, model_options):
                 # Allow input data to be given as Numpy array, Nifti image or filename
                 value = options.pop(key)
@@ -543,8 +543,16 @@ class Fabber(object):
             raise RuntimeError("Error initializing Fabber library: %s" % str(exc))
 
     def _trycall(self, call, *args):
-        ret = call(*args)
+        # Need to pass strings as byte-strings - assume UTF-8
+        # although nothing in Fabber goes beyond ASCII right now
+        new_args = []
+        for arg in args:
+            if isinstance(arg, six.string_types):
+                new_args.append(arg.encode("UTF-8"))
+            else:
+                new_args.append(arg)
+        ret = call(*new_args)
         if ret < 0:
-            raise FabberException(self._errbuf.value, ret, self._outbuf.value)
+            raise FabberException(self._errbuf.value.decode("UTF-8"), ret, self._outbuf.value.decode("UTF-8"))
         else:
             return ret
