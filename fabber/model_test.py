@@ -9,7 +9,8 @@ import numpy as np
 
 import nibabel as nib
 
-from .api import Fabber, percent_progress
+from .api_shlib import FabberShlib as Fabber
+from .api import percent_progress
 
 def _to_value_seq(values):
     """ 

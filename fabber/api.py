@@ -8,13 +8,11 @@ import warnings
 import datetime
 import time
 import glob
+import re
 import collections
 import tempfile
-from ctypes import CDLL, c_int, c_char_p, c_void_p, c_uint, CFUNCTYPE, create_string_buffer
 
-import six
 import numpy as np
-import numpy.ctypeslib as npct
 import nibabel as nib
 
 if sys.platform.startswith("win"):
@@ -31,8 +29,8 @@ def percent_progress(log=sys.stdout):
     """
     :return: Convenience progress callback which updates a percentage on the specified output stream
     """
-    def _progress(voxel, nvoxels):
-        complete = 100*voxel/nvoxels
+    def _progress(done, total):
+        complete = 100*done/total
         log.write("\b\b\b\b%3i%%" % complete)
         log.flush()
     return _progress
@@ -55,13 +53,24 @@ def find_fabber():
 
     :return: A tuple of executable, core library, sequence of model libraries
     """
-    ex, lib, models = None, None, []
+    exe, lib, model_libs, model_exes = None, None, {}, {}
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):
-        ex = _find_file(ex, envdir, _BIN_FORMAT % "fabber")
+        exe = _find_file(exe, envdir, _BIN_FORMAT % "fabber")
         lib = _find_file(lib, envdir, _LIB_FORMAT % "fabbercore_shared")
-        models += glob.glob(os.path.join(os.environ.get(envdir, ""), _LIB_FORMAT % "fabber_models_*"))
+        lib_regex = re.compile(r'.*fabber_models_(.+)\..*')
+        for model_lib in glob.glob(os.path.join(os.environ.get(envdir, ""), _LIB_FORMAT % "fabber_models_*")):
+            #print(model_lib)
+            model_name = lib_regex.match(model_lib).group(1)
+            model_libs[model_name] = model_lib
+        exe_regex = re.compile(r'.*fabber_(.+)\.?.*')
+        for model_exe in glob.glob(os.path.join(os.environ.get(envdir, ""), _BIN_FORMAT % "fabber_*")):
+            #print(model_exe)
+            model_name = exe_regex.match(model_exe).group(1)
+            if model_name != "var":
+                # Old executable which messes things up sometimes!
+                model_exes[model_name] = model_exe
 
-    return ex, lib, models
+    return exe, lib, model_libs, model_exes
 
 def load_options_files(fname):
     """ 
@@ -172,9 +181,9 @@ class FabberRun(object):
             warnings.warn("Could not find timestamp in log")
         return datetime.datetime.now(), timestamp_str
 
-class Fabber(object):
+class FabberApi(object):
     """
-    Interface to Fabber in library mode using simplified C API
+    Interface to Fabber, either using shared library or command line wrapper
     """
 
     BOOL = "BOOL"
@@ -187,8 +196,8 @@ class Fabber(object):
     MVN = "MVN"
     MATRIX = "MATRIX"
 
-    def __init__(self, core_lib=None, model_libs=None):
-        self.ex, self.core_lib, self.model_libs = find_fabber()
+    def __init__(self, core_lib=None, model_libs=None, core_exe=None, model_exes=None):
+        self.core_exe, self.core_lib, self.model_libs, self.model_exes = find_fabber()
 
         if core_lib:
             self.core_lib = core_lib
@@ -196,37 +205,42 @@ class Fabber(object):
         if self.core_lib is None or not os.path.isfile(self.core_lib):
             raise FabberException("Invalid core library - file not found: %s" % self.core_lib)
 
-        if model_libs is not None:
-            self.model_libs = set(model_libs)
+        if core_exe:
+            self.core_exe = core_exe
 
-        for lib in self.model_libs:
+        if self.core_exe is None or not os.path.isfile(self.core_exe):
+            raise FabberException("Invalid core executable - file not found: %s" % self.core_exe)
+
+        if model_libs is not None:
+            self.model_libs = dict(model_libs)
+
+        for lib in self.model_libs.values():
             if not os.path.isfile(lib):
                 raise FabberException("Invalid models library - file not found: %s" % lib)
            
-        self._errbuf = create_string_buffer(255)
-        self._outbuf = create_string_buffer(1000000)
-        self._progress_cb_type = CFUNCTYPE(None, c_int, c_int)
-        self._clib = self._init_clib()
-        self._handle = None
-        self._init_handle()
+        if model_exes is not None:
+            self.model_exes = dict(model_exes)
 
+        for exe in self.model_exes.values():
+            if not os.path.isfile(exe):
+                raise FabberException("Invalid models executable - file not found: %s" % exe)
+    
     def get_methods(self):
         """ 
         Get known inference methods
         
         :return: Sequence of known inference method names
         """
-        self._trycall(self._clib.fabber_get_methods, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        return self._outbuf.value.decode("UTF-8").splitlines()
+        pass
 
-    def get_models(self):
+    def get_models(self, model_group=None):
         """ 
         Get known models
         
+        :param model_group: If specified, return only models in this group
         :return: Sequence of known model names
         """
-        self._trycall(self._clib.fabber_get_models, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        return self._outbuf.value.decode("UTF-8").splitlines()
+        pass
 
     def get_options(self, generic=None, method=None, model=None):
         """
@@ -243,36 +257,7 @@ class Fabber(object):
                  is a list of options, each in the form of a dictionary.
                  Descriptions are simple text descriptions of the method or model
         """
-        if generic is None:
-            # For backwards compatibility - no params = generic
-            generic = not method and not model
-
-        ret, all_lines = [], []
-        if method:
-            self._trycall(self._clib.fabber_get_options, self._handle, "method", method, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.decode("UTF-8").split("\n")
-            ret.append(lines[0])
-            all_lines += lines[1:]
-        if model:
-            self._trycall(self._clib.fabber_get_options, self._handle, "model", model, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.decode("UTF-8").split("\n")
-            ret.append(lines[0])
-            all_lines += lines[1:]
-        if generic:
-            self._trycall(self._clib.fabber_get_options, self._handle, None, None, len(self._outbuf), self._outbuf, self._errbuf)
-            lines = self._outbuf.value.decode("UTF-8").split("\n")
-            ret.append(lines[0])
-            all_lines += lines[1:]
-        
-        opt_keys = ["name", "description", "type", "optional", "default"]
-        opts = []
-        for opt in all_lines:
-            if opt:
-                opt = dict(zip(opt_keys, opt.split("\t")))
-                opt["optional"] = opt["optional"] == "1"
-                opts.append(opt)
-        ret.insert(0, opts)
-        return tuple(ret)
+        pass
 
     def get_model_params(self, options):
         """ 
@@ -281,7 +266,7 @@ class Fabber(object):
         :param options: Options dictionary
         :return: Sequence of model parameter names
         """
-        return self._init_run(options)[1]
+        pass
         
     def get_model_outputs(self, options):
         """ 
@@ -290,7 +275,7 @@ class Fabber(object):
         :param options: Fabber options
         :return: Sequence of names of additional model timeseries outputs
         """
-        return self._init_run(options)[2]
+        pass
 
     def model_evaluate(self, options, param_values, nvols, indata=None):
         """
@@ -300,27 +285,7 @@ class Fabber(object):
         :param param_values: Parameter values as a dictionary of param name : param value
         :param nvols: Length of output array - equivalent to number of volumes in input data set
         """
-        # Get model parameter names and form a sequence of the values provided for them
-        _, params, _ = self._init_run(options)
-
-        plist = []
-        for param in params:
-            if param not in param_values:
-                raise FabberException("Model parameter %s not specified" % param)
-            else:
-                plist.append(param_values[param])
-
-        if len(param_values) != len(params):
-            raise FabberException("Incorrect number of parameters specified: expected %i (%s)" % (len(params), ",".join(params)))
-
-        ret = np.zeros([nvols,], dtype=np.float32)
-        if indata is None: 
-            indata = np.zeros([nvols,], dtype=np.float32)
-
-        # Call the evaluate function in the C API
-        self._trycall(self._clib.fabber_model_evaluate, self._handle, len(plist), np.array(plist, dtype=np.float32), nvols, indata, ret, self._errbuf)
-
-        return ret
+        pass
 
     def run(self, options, progress_cb=None):
         """
@@ -328,67 +293,15 @@ class Fabber(object):
 
         :param options: Fabber options as key/value dictionary. Data may be passed as Numpy arrays, Nifti 
                         images or strings (which are interpreted as filenames)
-        :param progress_cb: Callable which will be called periodically during processing
+        :param progress_cb: Callable which will be called periodically during processing. It will be passed
+                            two numeric parameters, the first a measure of work done and the second a measure
+                            of total work. These should not be interpreted any further! They may be counts
+                            of voxels, iterations or any other arbitrary units.
 
         :return: On success, a FabberRun instance
         """
-        if not "data" in options:
-            raise ValueError("Main voxel data not provided")
+        pass
 
-        # Initialize the run, set the options and return the model parameters
-        shape, params, extra_outputs = self._init_run(options)
-        nvoxels = shape[0] * shape[1] * shape[2]
-
-        output_items = []
-        if "save-mean" in options:
-            output_items += ["mean_" + p for p in params]
-        if "save-std" in options:
-            output_items += ["std_" + p for p in params]
-        if "save-zstat" in options:
-            output_items += ["zstat_" + p for p in params]
-        if "save-noise-mean" in options:
-            output_items.append("noise_means")
-        if "save-noise-std" in options:
-            output_items.append("noise_stdevs")
-        if "save-free-energy" in options:
-            output_items.append("freeEnergy")
-        if "save-model-fit" in options:
-            output_items.append("modelfit")
-        if "save-residuals" in options:
-            output_items.append("residuals")
-        if "save-mvn" in options:
-            output_items.append("finalMVN")
-        if "save-model-extras" in options:
-            output_items += extra_outputs
-
-        progress_cb_func = self._progress_cb_type(0)
-        if progress_cb is not None:
-            progress_cb_func = self._progress_cb_type(progress_cb)
-
-        retdata, log = {}, ""
-        self._trycall(self._clib.fabber_dorun, self._handle, len(self._outbuf), self._outbuf, self._errbuf, progress_cb_func)
-        log = self._outbuf.value.decode("UTF-8")
-        for key in output_items:
-            size = self._trycall(self._clib.fabber_get_data_size, self._handle, key, self._errbuf)
-            arr = np.ascontiguousarray(np.empty(nvoxels * size, dtype=np.float32))
-            self._trycall(self._clib.fabber_get_data, self._handle, key, arr, self._errbuf)
-            if size > 1:
-                arr = arr.reshape([shape[0], shape[1], shape[2], size], order='F')
-            else:
-                arr = arr.reshape([shape[0], shape[1], shape[2]], order='F')
-            retdata[key] = arr
-
-        return FabberRun(retdata, log)
-
-    def _write_temp_matrix(self, matrix):
-        with tempfile.NamedTemporaryFile(prefix="fab", delete=False) as tempf:
-            for row in matrix:
-                if isinstance(row, collections.Sequence):
-                    tempf.write(" ".join(["%f" % val for val in row]) + "\n")
-                else:
-                    tempf.write("%f\n" % row)
-            return tempf.name
-        
     def is_data_option(self, key, options):
         """
         :param key: Option name
@@ -403,156 +316,71 @@ class Fabber(object):
         else:
             return key in [option["name"] for option in options if option["type"] in (self.IMAGE, self.TIMESERIES, self.MVN)]
 
-    def _is_matrix_option(self, key, model_options):
-        return key in [option["name"] for option in model_options if option["type"] == self.MATRIX]
+    def is_matrix_option(self, key, options):
+        """
+        :param key: Option name
+        :param option: Options as key/value dict
 
-    def _init_run(self, options):
-        options = dict(options)
-        self._init_handle()
-        shape = self._set_options(options)
-        self._trycall(self._clib.fabber_get_model_params, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        params = self._outbuf.value.decode("UTF-8").splitlines()
-        self._trycall(self._clib.fabber_get_model_outputs, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
-        extra_outputs = self._outbuf.value.decode("UTF-8").splitlines()
-        return shape, params, extra_outputs
+        :return True if ``key`` is a matrix option
+        """
+        return key in [option["name"] for option in options if option["type"] == self.MATRIX]
 
-    def _init_handle(self):
-        # This is required because currently there is no CAPI function to clear the options.
-        # So we destroy the old Fabber handle and create a new one
-        self._destroy_handle()    
-        self._handle = self._clib.fabber_new(self._errbuf)
-        if self._handle is None:
-            raise RuntimeError("Error creating fabber context (%s)" % self._errbuf.value.decode("UTF-8"))
+    def _write_temp_matrix(self, matrix, tempdir=None):
+        """
+        Write a Numpy array to a temporary file as an ASCII matrix
 
-        for lib in self.model_libs:
-            self._trycall(self._clib.fabber_load_models, self._handle, lib, self._errbuf)
+        :param matrix: 2D Numpy array
+        :param tempdir: Optional temporary directory
 
-    def _set_options(self, options):
-        # Separate out data options from 'normal' options
-        data_options = {}
-        model_options = self.get_options(model=options.get("model", "poly"))[0]
-        for key in list(options.keys()):
-            if self.is_data_option(key, model_options):
-                # Allow input data to be given as Numpy array, Nifti image or filename
-                value = options.pop(key)
-                if value is None:
-                    pass
-                elif isinstance(value, nib.Nifti1Image):
-                    data_options[key] = value.get_data()
-                elif isinstance(value, six.string_types):
-                    data_options[key] = nib.load(value).get_data()
-                elif isinstance(value, np.ndarray):
-                    data_options[key] = value
+        :return: Name of temporary file
+        """
+        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir) as tempf:
+            for row in matrix:
+                if isinstance(row, collections.Sequence):
+                    tempf.write(" ".join(["%f" % val for val in row]) + "\n")
                 else:
-                    raise ValueError("Unsupported type for input data: %s = %s" % (key, type(value)))
-            elif self._is_matrix_option(key, model_options):
-                # Input matrices can be given as Numpy arrays or sequences but must be
-                # passed to fabber as file names
-                value = options.get(key)
-                if isinstance(value, six.string_types):
-                    pass
-                elif isinstance(value, np.ndarray):
-                    options[key] = self._write_temp_matrix(value)
-                elif isinstance(value, collections.Sequence):
-                    options[key] = self._write_temp_matrix(value)
-                else:
-                    raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
+                    tempf.write("%f\n" % row)
+            return tempf.name
 
-        # Set 'normal' options (i.e. not data items)
+    def _write_temp_nifti(self, nii, tempdir=None):
+        """
+        Write a Nifti data set to a temporary file
+
+        :param nii: ``nibabel.Nifti1Image``
+        :param tempdir: Optional temporary directory
+        
+        :return: Name of temporary file
+        """
+        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir) as tempf:
+            name = tempf.name
+            tempf.close()
+            nii.to_filename(name)
+            return name
+
+    def _normalize_options(self, options):
+        """
+        Prepare option keys/values for passing to fabber:
+
+         - Options with value of None are ignored
+
+         - Key separators can be specified as underscores or hyphens as hyphens are not allowed in Python
+           keywords. They are always passed as hyphens except for the anomolous PSP_byname options
+        
+         - Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
+           value True, the actual option value passed must be blank
+        """   
+        options_normalized = dict(options)
         for key, value in options.items():
-            # Options with 'None' values are ignored
-            if value is None: continue
-                
-            # Key separators can be specified as underscores or hyphens as hyphens are not allowed in Python
-            # keywords. They are always passed as hyphens except for the anomolous PSP_byname options
             if not key.startswith("PSP_"):
                 key = key.replace("_", "-")
 
-            # Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
-            # value True, the actual option value passed must be blank
-            if isinstance(value, bool):
+            if value is None: 
+                key, value = None, None
+            elif isinstance(value, bool):
                 if value:
                     value = ""
                 else:
-                    continue
-            self._trycall(self._clib.fabber_set_opt, self._handle, str(key), str(value), self._errbuf)
+                    key, value = None, None
 
-        # Shape comes from the main data, or if not present (e.g. during model_evaluate), take
-        # shape from any data item or as single-voxel volume
-        if "data" in data_options:
-            shape = data_options["data"].shape
-        elif data_options:
-            shape = data_options[data_options.keys()[0]].shape
-        else:
-            shape = (1, 1, 1)
-        nvoxels = shape[0] * shape[1] * shape[2]
-
-        # Make mask suitable for passing to int* c function
-        mask = data_options.pop("mask", np.ones(nvoxels))
-        mask = np.ascontiguousarray(mask.flatten(order='F'), dtype=np.int32)
-
-        # Set data options
-        self._trycall(self._clib.fabber_set_extent, self._handle, shape[0], shape[1], shape[2], mask, self._errbuf)
-        for key, item in data_options.items():
-            if len(item.shape) == 3:
-                size = 1
-            else:
-                size = item.shape[3]
-            item = np.ascontiguousarray(item.flatten(order='F'), dtype=np.float32)
-            self._trycall(self._clib.fabber_set_data, self._handle, key, size, item, self._errbuf)
-        
-        return shape
-
-    def _destroy_handle(self):
-        if hasattr(self, "_handle"):
-            if self._handle:
-                self._clib.fabber_destroy(self._handle)
-                self._handle = None
-
-    def __del__(self):
-        self._destroy_handle()
-
-    def _init_clib(self):
-        try:
-            clib = CDLL(str(self.core_lib))
-
-            # Signatures of the C functions
-            c_int_arr = npct.ndpointer(dtype=np.int32, ndim=1, flags='CONTIGUOUS')
-            c_float_arr = npct.ndpointer(dtype=np.float32, ndim=1, flags='CONTIGUOUS')
-
-            clib.fabber_new.argtypes = [c_char_p]
-            clib.fabber_new.restype = c_void_p
-            clib.fabber_load_models.argtypes = [c_void_p, c_char_p, c_char_p]
-            clib.fabber_set_extent.argtypes = [c_void_p, c_uint, c_uint, c_uint, c_int_arr, c_char_p]
-            clib.fabber_set_opt.argtypes = [c_void_p, c_char_p, c_char_p, c_char_p]
-            clib.fabber_set_data.argtypes = [c_void_p, c_char_p, c_uint, c_float_arr, c_char_p]
-            clib.fabber_get_data_size.argtypes = [c_void_p, c_char_p, c_char_p]
-            clib.fabber_get_data.argtypes = [c_void_p, c_char_p, c_float_arr, c_char_p]
-            clib.fabber_dorun.argtypes = [c_void_p, c_uint, c_char_p, c_char_p, self._progress_cb_type]
-            clib.fabber_destroy.argtypes = [c_void_p]
-
-            clib.fabber_get_options.argtypes = [c_void_p, c_char_p, c_char_p, c_uint, c_char_p, c_char_p]
-            clib.fabber_get_models.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
-            clib.fabber_get_methods.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
-
-            clib.fabber_get_model_params.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
-            clib.fabber_get_model_outputs.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
-            clib.fabber_model_evaluate.argtypes = [c_void_p, c_uint, c_float_arr, c_uint, c_float_arr, c_float_arr, c_char_p]
-            return clib
-        except Exception as exc:
-            raise RuntimeError("Error initializing Fabber library: %s" % str(exc))
-
-    def _trycall(self, call, *args):
-        # Need to pass strings as byte-strings - assume UTF-8
-        # although nothing in Fabber goes beyond ASCII right now
-        new_args = []
-        for arg in args:
-            if isinstance(arg, six.string_types):
-                new_args.append(arg.encode("UTF-8"))
-            else:
-                new_args.append(arg)
-        ret = call(*new_args)
-        if ret < 0:
-            raise FabberException(self._errbuf.value.decode("UTF-8"), ret, self._outbuf.value.decode("UTF-8"))
-        else:
-            return ret
+            options_normalized[key] = value
+        return options_normalized
