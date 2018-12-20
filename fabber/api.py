@@ -51,7 +51,7 @@ def find_fabber():
     """
     Find the Fabber executable, core library and model libraries, or return None if not found
 
-    :return: A tuple of executable, core library, sequence of model group libraries,  sequence of model group executables
+    :return: A tuple of core library, core executable dictionary of model group libraries, dictionary of model group executables
     """
     exe, lib, model_libs, model_exes = None, None, {}, {}
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):
@@ -59,18 +59,15 @@ def find_fabber():
         lib = _find_file(lib, envdir, _LIB_FORMAT % "fabbercore_shared")
         lib_regex = re.compile(r'.*fabber_models_(.+)\..*')
         for model_lib in glob.glob(os.path.join(os.environ.get(envdir, ""), _LIB_FORMAT % "fabber_models_*")):
-            #print(model_lib)
             model_name = lib_regex.match(model_lib).group(1)
             model_libs[model_name] = model_lib
         exe_regex = re.compile(r'.*fabber_(.+)\.?.*')
         for model_exe in glob.glob(os.path.join(os.environ.get(envdir, ""), _BIN_FORMAT % "fabber_*")):
-            #print(model_exe)
             model_name = exe_regex.match(model_exe).group(1)
             if model_name != "var":
                 # Old executable which messes things up sometimes!
                 model_exes[model_name] = model_exe
-
-    return exe, lib, model_libs, model_exes
+    return lib, exe, model_libs, model_exes
 
 def load_options_files(fname):
     """ 
@@ -197,7 +194,7 @@ class FabberApi(object):
     MATRIX = "MATRIX"
 
     def __init__(self, core_lib=None, model_libs=None, core_exe=None, model_exes=None):
-        self.core_exe, self.core_lib, self.model_libs, self.model_exes = find_fabber()
+        self.core_lib, self.core_exe, self.model_libs, self.model_exes = find_fabber()
 
         if core_lib:
             self.core_lib = core_lib
