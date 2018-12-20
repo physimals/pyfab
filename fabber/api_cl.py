@@ -150,11 +150,11 @@ class FabberCl(FabberApi):
         return tuple(ret)
 
     def get_model_params(self, options):
-        stdout = self._call(options, listparams=True)
+        stdout = self._call(options, listparams=True, data_options=True)
         return stdout.splitlines()
         
     def get_model_outputs(self, options):
-        stdout = self._call(options, listoutputs=True)
+        stdout = self._call(options, listoutputs=True, data_options=True)
         return stdout.splitlines()
 
     def model_evaluate(self, options, param_values, nvols, indata=None):
@@ -169,21 +169,15 @@ class FabberCl(FabberApi):
         else:
             stdout_handler = None
 
-        indir, outdir = None, None
+        outdir = None
         try:
-            indir, options = self._process_data_options(options)
             outdir = tempfile.mkdtemp("fabberout")
-
             out_subdir = os.path.join(outdir, "fabout")
-            self._call(options, output=out_subdir, stdout_handler=stdout_handler, simple_output=True)
+            self._call(options, output=out_subdir, stdout_handler=stdout_handler, simple_output=True, data_options=True)
             return FabberClRun(out_subdir)
         finally:
-            if indir is not None:
-                shutil.rmtree(indir)
-            #if outdir is not None:
-            #    shutil.rmtree(outdir)
-
-        return outdir
+            if outdir is not None:
+                shutil.rmtree(outdir)
 
     def _parse_options(self, lines):
         """
@@ -220,47 +214,57 @@ class FabberCl(FabberApi):
 
         return options
 
-    def _call(self, options=None, stdout_handler=None, **kwargs):
+    def _call(self, options=None, stdout_handler=None, data_options=False, **kwargs):
         """
         Call the Fabber executable
         """
-        if options is None:
-            options = {}
-        else:
-            options = dict(options)
-        options.update(kwargs)
-        options = self._normalize_options(options)
+        indir = None
+        try:
+            if options is None:
+                options = {}
+            else:
+                options = dict(options)
+            options.update(kwargs)
 
-        # Get the correct executable for the model/model group required
-        exe = self._get_exe(options)
+            # Convert options to format expected by Fabber (e.g. _ -> -)
+            options = self._normalize_options(options)
 
-        # Convert options to command line arguments
-        cl_args = self._get_clargs(options)
+            # If required, write data options to temporary files
+            if data_options:
+                indir, options = self._process_data_options(options)
 
-        # Run the process and return stdout
-        #print(exe, cl_args)
-        stdout = ""
-        p = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        while 1:
-            retcode = p.poll() # returns None while subprocess is running
-            line = p.stdout.readline().decode('utf-8')
-            stdout += line
-            if stdout_handler is not None:
-                stdout_handler(line)
-            if line == "" and retcode is not None: 
-                break
+            # Get the correct executable for the model/model group required
+            exe = self._get_exe(options)
 
-        #print(stdout)
-        if retcode != 0:
-            raise FabberClException(stdout, retcode, options.get("output", ""))
-        return stdout
+            # Convert options to command line arguments
+            cl_args = self._get_clargs(options)
+
+            # Run the process and return stdout
+            stdout = ""
+            p = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            while 1:
+                retcode = p.poll() # returns None while subprocess is running
+                line = p.stdout.readline().decode('utf-8')
+                stdout += line
+                if stdout_handler is not None:
+                    stdout_handler(line)
+                if line == "" and retcode is not None: 
+                    break
+
+            #print(stdout)
+            if retcode != 0:
+                raise FabberClException(stdout, retcode, options.get("output", ""))
+            return stdout
+        finally:
+            if indir is not None:
+                shutil.rmtree(indir)
 
     def _get_exe(self, options):
         """
         Get the right Fabber exe to use
         """
-        if "model_group" in options:
-            group = options.pop("model_group")
+        if "model_group" in options or "model-group" in options:
+            group = options.pop("model_group", options.pop("model-group", ""))
             if group not in self.model_exes:
                 raise ValueError("Unknown model group: %s" % group)
             exe = self.model_exes[group]
