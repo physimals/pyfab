@@ -98,6 +98,10 @@ class FabberCl(FabberApi):
 
     def __init__(self, core_exe=None, model_exes=None):
         FabberApi.__init__(self, core_exe=core_exe, model_exes=model_exes)
+
+        if self.core_exe is None or not os.path.isfile(self.core_exe):
+            raise FabberException("Invalid core executable - file not found: %s" % self.core_exe)
+
         self._model_groups = None
         self._models = None
 

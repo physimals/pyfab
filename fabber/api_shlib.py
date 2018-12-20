@@ -20,6 +20,9 @@ class FabberShlib(FabberApi):
     def __init__(self, core_lib=None, model_libs=None):
         FabberApi.__init__(self, core_lib=core_lib, model_libs=model_libs)
 
+        if self.core_lib is None or not os.path.isfile(self.core_lib):
+            raise FabberException("Invalid core library - file not found: %s" % self.core_lib)
+
         self._errbuf = create_string_buffer(255)
         self._outbuf = create_string_buffer(1000000)
         self._progress_cb_type = CFUNCTYPE(None, c_int, c_int)

@@ -199,14 +199,8 @@ class FabberApi(object):
         if core_lib:
             self.core_lib = core_lib
 
-        if self.core_lib is None or not os.path.isfile(self.core_lib):
-            raise FabberException("Invalid core library - file not found: %s" % self.core_lib)
-
         if core_exe:
             self.core_exe = core_exe
-
-        if self.core_exe is None or not os.path.isfile(self.core_exe):
-            raise FabberException("Invalid core executable - file not found: %s" % self.core_exe)
 
         if model_libs is not None:
             self.model_libs = dict(model_libs)
