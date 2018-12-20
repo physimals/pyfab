@@ -2,6 +2,7 @@
 Python API for the the FSL Fabber tool using the C API via the Python ctypes library
 """
 
+import os
 import collections
 from ctypes import CDLL, c_int, c_char_p, c_void_p, c_uint, CFUNCTYPE, create_string_buffer
 
