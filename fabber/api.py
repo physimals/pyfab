@@ -51,7 +51,7 @@ def find_fabber():
     """
     Find the Fabber executable, core library and model libraries, or return None if not found
 
-    :return: A tuple of executable, core library, sequence of model libraries
+    :return: A tuple of executable, core library, sequence of model group libraries,  sequence of model group executables
     """
     exe, lib, model_libs, model_exes = None, None, {}, {}
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):

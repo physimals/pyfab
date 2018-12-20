@@ -2,7 +2,7 @@
 Python API for the FSL Fabber tool
 """
 
-from .api import FabberException, FabberRun, percent_progress
+from .api import FabberException, FabberRun, percent_progress, find_fabber
 from .api_shlib import FabberShlib as Fabber
 from .model_test import self_test, generate_test_data
 
