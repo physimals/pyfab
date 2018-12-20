@@ -60,13 +60,14 @@ def find_fabber():
         lib_regex = re.compile(r'.*fabber_models_(.+)\..*')
         for model_lib in glob.glob(os.path.join(os.environ.get(envdir, ""), _LIB_FORMAT % "fabber_models_*")):
             model_name = lib_regex.match(model_lib).group(1)
-            model_libs[model_name] = model_lib
+            model_libs[model_name] = model_libs.get(model_name, model_lib)
         exe_regex = re.compile(r'.*fabber_(.+)\.?.*')
         for model_exe in glob.glob(os.path.join(os.environ.get(envdir, ""), _BIN_FORMAT % "fabber_*")):
             model_name = exe_regex.match(model_exe).group(1)
             if model_name != "var":
                 # Old executable which messes things up sometimes!
-                model_exes[model_name] = model_exe
+                model_exes[model_name] = model_exes.get(model_name, model_exe)
+    
     return lib, exe, model_libs, model_exes
 
 def load_options_files(fname):
@@ -360,7 +361,7 @@ class FabberApi(object):
          - Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
            value True, the actual option value passed must be blank
         """   
-        options_normalized = dict(options)
+        options_normalized = {}
         for key, value in options.items():
             if not key.startswith("PSP_"):
                 key = key.replace("_", "-")
@@ -373,5 +374,6 @@ class FabberApi(object):
                 else:
                     key, value = None, None
 
-            options_normalized[key] = value
+            if key is not None:
+                options_normalized[key] = value
         return options_normalized
