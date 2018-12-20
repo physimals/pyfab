@@ -107,7 +107,7 @@ class FabberCl(FabberApi):
 
     def get_methods(self):
         stdout = self._call(listmethods=True)
-        return self._textlist(stdout)
+        return stdout.splitlines()
 
     def get_models(self, model_group=None):
         if self._model_groups is None:
@@ -115,7 +115,7 @@ class FabberCl(FabberApi):
             self._models = {}
             for group in self.model_exes:
                 stdout = self._call(listmodels=True, model_group=group)
-                self._models[group] = self._textlist(stdout)
+                self._models[group] = stdout.splitlines()
                 for model in self._models[group]:
                     self._model_groups[model] = group
         if model_group is not None:
@@ -131,17 +131,17 @@ class FabberCl(FabberApi):
         ret, all_lines = [], []
         if method:
             stdout = self._call(help=True, method=method)
-            lines = self._textlist(stdout)
+            lines = stdout.splitlines()
             ret.append(lines[0])
             all_lines += lines[1:]
         if model:
             stdout = self._call(help=True, model=model)
-            lines = self._textlist(stdout)
+            lines = stdout.splitlines()
             ret.append(lines[0])
             all_lines += lines[1:]
         if generic:
             stdout = self._call(help=True)
-            lines = self._textlist(stdout)
+            lines = stdout.splitlines()
             ret.append(lines[0])
             all_lines += lines[1:]
         
@@ -151,11 +151,11 @@ class FabberCl(FabberApi):
 
     def get_model_params(self, options):
         stdout = self._call(options, listparams=True)
-        return self._textlist(stdout)
+        return stdout.splitlines()
         
     def get_model_outputs(self, options):
         stdout = self._call(options, listoutputs=True)
-        return self._textlist(stdout)
+        return stdout.splitlines()
 
     def model_evaluate(self, options, param_values, nvols, indata=None):
         raise NotImplementedError("model_evaluate")
@@ -184,9 +184,6 @@ class FabberCl(FabberApi):
             #    shutil.rmtree(outdir)
 
         return outdir
-
-    def _textlist(self, text):
-        return text.decode("UTF-8").splitlines()
 
     def _parse_options(self, lines):
         """
