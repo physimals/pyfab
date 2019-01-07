@@ -77,7 +77,7 @@ class FabberShlib(FabberApi):
     def get_model_outputs(self, options):
         return self._init_run(options)[2]
 
-    def model_evaluate(self, options, param_values, nvols, indata=None):
+    def model_evaluate(self, options, param_values, nvols, indata=None, output_name=""):
         # Get model parameter names and form a sequence of the values provided for them
         _, params, _ = self._init_run(options)
 
@@ -96,7 +96,7 @@ class FabberShlib(FabberApi):
             indata = np.zeros([nvols,], dtype=np.float32)
 
         # Call the evaluate function in the C API
-        self._trycall(self._clib.fabber_model_evaluate, self._handle, len(plist), np.array(plist, dtype=np.float32), nvols, indata, ret, self._errbuf)
+        self._trycall(self._clib.fabber_model_evaluate_output, self._handle, len(plist), np.array(plist, dtype=np.float32), nvols, indata, output_name, ret, self._errbuf)
 
         return ret
 
@@ -281,6 +281,7 @@ class FabberShlib(FabberApi):
             clib.fabber_get_model_params.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
             clib.fabber_get_model_outputs.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
             clib.fabber_model_evaluate.argtypes = [c_void_p, c_uint, c_float_arr, c_uint, c_float_arr, c_float_arr, c_char_p]
+            clib.fabber_model_evaluate_output.argtypes = [c_void_p, c_uint, c_float_arr, c_uint, c_float_arr, c_char_p, c_float_arr, c_char_p]
             return clib
         except Exception as exc:
             raise RuntimeError("Error initializing Fabber library: %s" % str(exc))

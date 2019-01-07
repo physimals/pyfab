@@ -269,7 +269,7 @@ class FabberApi(object):
         """
         pass
 
-    def model_evaluate(self, options, param_values, nvols, indata=None):
+    def model_evaluate(self, options, param_values, nvols, indata=None, output_name=""):
         """
         Evaluate the model with a specified set of parameters
 
