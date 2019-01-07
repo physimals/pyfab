@@ -10,6 +10,7 @@ import shutil
 import re
 import os
 import glob
+import warnings
 
 import six
 import numpy as np
@@ -54,6 +55,7 @@ class FabberClException(FabberException):
             if line.startswith("Exception"):
                 grabnext = True
         logfile = os.path.join(outdir, "logfile")
+        log = ""
         if os.path.exists(logfile):
             with open(logfile, "r") as logfile: log = logfile.read()
         
@@ -157,8 +159,32 @@ class FabberCl(FabberApi):
         stdout = self._call(options, listoutputs=True, data_options=True)
         return stdout.splitlines()
 
-    def model_evaluate(self, options, param_values, nvols, indata=None):
-        raise NotImplementedError("model_evaluate")
+    def model_evaluate(self, options, param_values, nvols, indata=None, output_name=""):
+        params = self.get_model_params(options)
+        plist = []
+        for param in params:
+            if param not in param_values:
+                raise FabberException("Model parameter %s not specified" % param)
+            else:
+                plist.append(param_values[param])
+
+        if len(param_values) != len(params):
+            raise FabberException("Incorrect number of parameters specified: expected %i (%s)" % (len(params), ",".join(params)))
+
+        params_file = self._write_temp_matrix(plist)
+        data_file = None
+        if indata is not None:
+            data_file = self._write_temp_matrix(indata)
+
+        stdout = self._call(options, evaluate=output_name, evaluate_nt=nvols, evaluate_params=params_file, evaluate_data=data_file)
+        ret = []
+        for line in stdout.splitlines():
+            try:
+                val = float(line)
+                ret.append(val)
+            except:
+                warnings.warn("Unexpected output: %s" % line)
+        return ret
 
     def run(self, options, progress_cb=None):
         if "data" not in options:
