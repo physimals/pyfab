@@ -1,6 +1,3 @@
-import pytest
-import numpy as np
-
 from fabber import FabberException
 
 def test_msg_only():
