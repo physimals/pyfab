@@ -24,7 +24,7 @@ def _to_value_seq(values):
     except (ValueError, TypeError):
         return values
 
-def self_test(model, options, param_testvalues, save_input=False, save_output=False, disp=True, invert=True, outfile_format="test_data_%s", **kwargs):
+def self_test(model, options, param_testvalues, save_input=False, save_output=False, disp=True, invert=True, output_name="", outfile_format="test_data_%s", **kwargs):
     """
     Run a self test on a model
     
@@ -35,7 +35,7 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
     if disp: print("Running self test for model %s" % model)
     ret = {}
     options["model"] = model
-    test_data = generate_test_data(fab, options, param_testvalues, param_rois=True, **kwargs)
+    test_data = generate_test_data(fab, options, param_testvalues, param_rois=True, output_name=output_name, **kwargs)
     data, cleandata, roidata = test_data["data"], test_data["clean"], test_data["param-rois"]
     if save_input:
         outfile = outfile_format % model
@@ -52,6 +52,8 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
     
     log = None
     if invert:
+        if output_name != "":
+            raise ValueError("Can't invert test data when requesting non-default output")
         if disp: sys.stdout.write("Inverting test data - running Fabber:  0%%")
         sys.stdout.flush()
         if "method" not in options: options["method"] = "vb"
@@ -95,7 +97,7 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
         sys.stdout.flush()
     return ret, log
 
-def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, noise=None, patch_rois=False, param_rois=False):
+def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, noise=None, patch_rois=False, param_rois=False, output_name=""):
     """ 
     Generate a test Nifti image based on model evaluations
 
@@ -145,7 +147,7 @@ def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, nois
                         fixed_params[param] = param_value
                         if param_rois:
                             param_roi_data[param][x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize] = pos[idx]+1
-                model_curve = api.model_evaluate(options, fixed_params, nt)
+                model_curve = api.model_evaluate(options, fixed_params, nt, output_name=output_name)
                 
                 data[x*patchsize:(x+1)*patchsize, y*patchsize:(y+1)*patchsize, z*patchsize:(z+1)*patchsize, :] = model_curve
                 if patch_rois: 
