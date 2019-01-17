@@ -1,5 +1,9 @@
 """
-Python API for the the FSL Fabber tool using the C API via the Python ctypes library
+PYFAB API using Fabber shared libraries
+=======================================
+
+This API uses the C API defined in the ``libfabbercore_shared.so`` shared library via
+the Python ``ctypes`` module.
 """
 
 import os

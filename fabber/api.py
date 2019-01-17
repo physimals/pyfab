@@ -1,5 +1,30 @@
 """
-Python API for the the FSL Fabber tool using the C API via the Python ctypes library
+PYFAB API
+=========
+
+PYFAB can interface with Fabber in two ways:
+
+ - Via a wrapper of the command line tools (generally one per model library, e.g. ``fabber_asl``, ``fabber_cest``, etc)
+ - By accessing the C API directly using the core shared library ``libfabbercore_shared.so`` (in conjunction with model libraries such as ``libfabber_models_asl.so``).
+
+PYFAB can use either approach. The shared library is more elegant and probably a little faster
+for very short runs, however the shared library is not available in all installations - in 
+particular it is not currently included in FSL.
+
+The FabberApi interface described below is implemented for each option. So to work with the command line
+wrapper you would use, for example::
+
+    >>> from fabber import FabberCl
+    >>> fab = FabberCl()
+    >>> fab.get_models(model_group="asl")
+    [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
+
+Almost identically, to do the same thing using the shared library API::
+
+    >>> from fabber import FabberShlib
+    >>> fab = FabberShlib()
+    >>> fab.get_models(model_group="asl")
+    [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
 """
 
 import os

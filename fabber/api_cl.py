@@ -1,5 +1,19 @@
 """
-Python API for the the FSL Fabber tool using the command line
+PYFAB API using Fabber command line tool(s)
+===========================================
+
+This API uses Fabber command line tools, run within temporary
+directories, to implement the required functions. For short
+runs this is likely to be slower than the shared-library
+based API however it can be used when the shared library is not 
+available or there are binary compatibility problems.
+
+Note that Fabber command line tools typically come as one
+per model library, i.e. ``fabber_asl`` which contains a number
+of ASL-MRI related models, ``fabber_cest`` which contains the
+CEST-MRI model, etc. The base ``fabber`` executable is not 
+terribly useful in itself - it only includes generic linear
+and polynomial models.
 """
 from __future__ import unicode_literals, print_function
 

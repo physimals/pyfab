@@ -5,3 +5,4 @@ build
 dist
 pyfab.egg-info
 .pytest_cache
+doc/html

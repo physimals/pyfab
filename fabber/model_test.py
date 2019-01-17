@@ -1,5 +1,6 @@
 """
-Simple functions for testing model fit performance
+PYFAB - Generating and fitting test data for Fabber models
+==========================================================
 """
 
 import sys
@@ -14,9 +15,8 @@ from .api import percent_progress
 
 def _to_value_seq(values):
     """ 
-    values might be a sequence or a single float value. 
-    Returns either the original sequence or a sequence whose only
-    item is the value
+    :param values: Either a single numeric value or a sequence of numeric values
+    :return: A sequence, possibly of length one, of all the values in ``values``
     """
     try:
         val = float(values)
@@ -24,18 +24,38 @@ def _to_value_seq(values):
     except (ValueError, TypeError):
         return values
 
-def self_test(model, options, param_testvalues, save_input=False, save_output=False, disp=True, invert=True, output_name="", outfile_format="test_data_%s", **kwargs):
+def self_test(model, options, param_testvalues, save_input=False, save_output=False, disp=True, 
+              invert=True, output_name="", outfile_format="test_data_%s", **kwargs):
     """
     Run a self test on a model
     
-    This consists of generating a test data set using specified parameter values, adding optional noise and then running the model
-    fit on the test data
+    This consists of generating a test data set using specified parameter values, adding optional 
+    noise and then running the model fit on the test data
+
+    :param model: Name of the model to test
+    :param options: Model options as would be specified when fitting the model to the test data
+                    to be generated
+    :param param_testvalues: Mapping from parameter names (as reported by ``get_model_params``)
+                             to either a single value or a sequence of values. At most 3 parameters
+                             are allowed to have multiple values - this is so a 3D test volume
+                             can be created where each dimension represents the variation in 
+                             a single parameter.
+    :param save_input: If True, save the input test data prior to running the model fitting
+    :param save_output: If True, save the fitted output parameter images
+    :param disp:
+    :param invert: If True, run model fitting on the test data generated
+    :param output_name: Name to be used in output files
+    :param outfile_format: Format for output files. Should contain a single ``%s`` specifier
+                           which will be replaced with ``output_name``
+
+    Remaining keyword arguments are passed to ``generate_test_data``
     """
     fab = Fabber()
     if disp: print("Running self test for model %s" % model)
     ret = {}
     options["model"] = model
-    test_data = generate_test_data(fab, options, param_testvalues, param_rois=True, output_name=output_name, **kwargs)
+    test_data = generate_test_data(fab, options, param_testvalues, param_rois=True,
+                                   output_name=output_name, **kwargs)
     data, cleandata, roidata = test_data["data"], test_data["clean"], test_data["param-rois"]
     if save_input:
         outfile = outfile_format % model
@@ -97,9 +117,10 @@ def self_test(model, options, param_testvalues, save_input=False, save_output=Fa
         sys.stdout.flush()
     return ret, log
 
-def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, noise=None, patch_rois=False, param_rois=False, output_name=""):
+def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, noise=None, 
+                       patch_rois=False, param_rois=False, output_name=""):
     """ 
-    Generate a test Nifti image based on model evaluations
+    Generate a test data based on model evaluations for a range of parameter values
 
     Returns the image itself - this can be saved to a file using to_filename
     """

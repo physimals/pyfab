@@ -1,0 +1,2 @@
+.. automodule:: fabber.api
+   :members:
