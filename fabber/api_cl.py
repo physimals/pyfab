@@ -115,7 +115,7 @@ class FabberCl(FabberApi):
     def __init__(self, core_exe=None, model_exes=None):
         FabberApi.__init__(self, core_exe=core_exe, model_exes=model_exes)
 
-        if self.core_exe is None or not os.path.isfile(self.core_exe):
+        if core_exe is not None and not os.path.isfile(self.core_exe):
             raise FabberException("Invalid core executable - file not found: %s" % self.core_exe)
 
         self._model_groups = None
@@ -314,8 +314,12 @@ class FabberCl(FabberApi):
             if model not in self._model_groups:
                 raise ValueError("Unknown model: %s" % model)
             exe = self.model_exes[self._model_groups[model]]
-        else:
+        elif self.core_exe is not None:
             exe = self.core_exe
+        elif self._model_groups:
+            exe = self.model_exes.values()[0]
+        else:
+            raise ValueError("No Fabber executable found")
         return exe
 
     def _process_data_options(self, options):
