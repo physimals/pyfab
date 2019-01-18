@@ -62,6 +62,7 @@ class FabberClException(FabberException):
         :param outdir: Output directory (to read logfile if possible)
         """
         grabnext = False
+        msg = ""
         for line in stdout.splitlines():
             if grabnext:
                 msg = line.strip()
@@ -99,6 +100,7 @@ class FabberClRun(FabberRun):
             re.compile(r".*[/\\](noise_stdevs)\..+"),
             re.compile(r".*[/\\](finalMVN)\..+"),
             re.compile(r".*[/\\](freeEnergy)\..+"),
+            re.compile(r".*[/\\](modelfit)\..+"),
         ]
         for fname in glob.glob(os.path.join(outdir, "*")):
             for regex in regexes:
