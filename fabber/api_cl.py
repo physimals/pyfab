@@ -376,7 +376,7 @@ class FabberCl(FabberApi):
         cl_args = []
         for key, value in options.items():
             if key:
-                if value:
+                if value != "":
                     cl_args.append("--%s=%s" % (key, value))
                 else:
                     cl_args.append("--%s" % key)
