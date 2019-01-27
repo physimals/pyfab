@@ -282,12 +282,13 @@ class FabberCl(FabberApi):
             cl_args = self._get_clargs(options)
 
             # Run the process and return stdout
-            stdout = ""
+            stdout = six.StringIO()
             p = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             while 1:
                 retcode = p.poll() # returns None while subprocess is running
                 line = p.stdout.readline().decode('utf-8')
-                stdout += line
+                stdout.write(line)
+                stdout.write("\n")
                 if stdout_handler is not None:
                     stdout_handler(line)
                 if line == "" and retcode is not None: 
@@ -295,8 +296,8 @@ class FabberCl(FabberApi):
 
             #print(stdout)
             if retcode != 0:
-                raise FabberClException(stdout, retcode, options.get("output", ""))
-            return stdout
+                raise FabberClException(stdout.getvalue(), retcode, options.get("output", ""))
+            return stdout.getvalue()
         finally:
             if indir is not None:
                 shutil.rmtree(indir)
