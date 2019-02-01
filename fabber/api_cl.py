@@ -234,7 +234,7 @@ class FabberCl(FabberApi):
         for line in lines:
             match = option_regex.match(line)
             if match:
-                if current_option is not None:
+                if current_option:
                     current_option["description"] = current_option["description"][:-1]
 
                 current_option = {
@@ -252,7 +252,8 @@ class FabberCl(FabberApi):
                 options.append(current_option)
             elif current_option is not None:
                 desc = line.strip()
-                if desc: current_option["description"] += desc + " "
+                if desc:
+                    current_option["description"] += desc + " "
 
         return options
 
