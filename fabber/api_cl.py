@@ -132,12 +132,13 @@ class FabberCl(FabberApi):
             self._model_groups = {}
             self._models = {}
             for group in self.model_exes:
+                group = group.lower()
                 stdout = self._call(listmodels=True, model_group=group)
                 self._models[group] = stdout.splitlines()
                 for model in self._models[group]:
                     self._model_groups[model] = group
         if model_group is not None:
-            return self._models[model_group]
+            return self._models.get(model_group.lower(), [])
         else:
             return list(self._model_groups.keys())
        
@@ -308,7 +309,7 @@ class FabberCl(FabberApi):
         Get the right Fabber exe to use
         """
         if "model_group" in options or "model-group" in options:
-            group = options.pop("model_group", options.pop("model-group", ""))
+            group = options.pop("model_group", options.pop("model-group", "")).lower()
             if group not in self.model_exes:
                 raise ValueError("Unknown model group: %s" % group)
             exe = self.model_exes[group]
