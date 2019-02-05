@@ -61,7 +61,7 @@ def get_version(rootdir):
         update_metadata(rootdir, version, timestamp)
     else:
         # Could not get metadata from Git - use the version file if it exists
-        with open(os.path.join(rootdir, 'fabber', '_version.py'), encoding='utf-8') as f:
+        with io.open(os.path.join(rootdir, 'fabber', '_version.py'), encoding='utf-8') as f:
             md = f.read()
             match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", md, re.M)
             if match:
