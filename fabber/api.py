@@ -60,34 +60,40 @@ def percent_progress(log=sys.stdout):
         log.flush()
     return _progress
 
-def _find_file(current_value, envdir, search_for):
+def _find_file(current_value, search_dir, search_for):
     if current_value is not None:
         return current_value
-    elif envdir in os.environ:
-        newfpath = os.path.join(os.environ[envdir], search_for)
+    else:
+        newfpath = os.path.join(search_dir, search_for)
         if os.path.isfile(newfpath):
             return newfpath
         else:
             return current_value
-    else:
-        return None
 
-def find_fabber():
+def find_fabber(*extra_search_dirs):
     """
     Find the Fabber executable, core library and model libraries, or return None if not found
+
+    :param search_dirs: Extra search directories to use to look for Fabber libraries and executables. By default will
+                        use the environment variables FABBERDIR, FSLDEVDIR and FSLDIR in that order.
 
     :return: A tuple of core library, core executable dictionary of model group libraries, dictionary of model group executables
     """
     exe, lib, model_libs, model_exes = None, None, {}, {}
+    search_dirs = list(extra_search_dirs)
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):
-        exe = _find_file(exe, envdir, _BIN_FORMAT % "fabber")
-        lib = _find_file(lib, envdir, _LIB_FORMAT % "fabbercore_shared")
+        if envdir in os.environ: 
+            search_dirs.append(os.environ[envdir])
+
+    for search_dir in search_dirs:
+        exe = _find_file(exe, search_dir, _BIN_FORMAT % "fabber")
+        lib = _find_file(lib, search_dir, _LIB_FORMAT % "fabbercore_shared")
         lib_regex = re.compile(r'.*fabber_models_(.+)\..*')
-        for model_lib in glob.glob(os.path.join(os.environ.get(envdir, ""), _LIB_FORMAT % "fabber_models_*")):
+        for model_lib in glob.glob(os.path.join(search_dir, _LIB_FORMAT % "fabber_models_*")):
             model_name = lib_regex.match(model_lib).group(1)
             model_libs[model_name] = model_libs.get(model_name, model_lib)
         exe_regex = re.compile(r'.*fabber_(.+)\.?.*')
-        for model_exe in glob.glob(os.path.join(os.environ.get(envdir, ""), _BIN_FORMAT % "fabber_*")):
+        for model_exe in glob.glob(os.path.join(search_dir, _BIN_FORMAT % "fabber_*")):
             model_name = exe_regex.match(model_exe).group(1)
             if model_name != "var":
                 # Old executable which messes things up sometimes!
@@ -242,6 +248,14 @@ class FabberApi(object):
             if not os.path.isfile(exe):
                 raise FabberException("Invalid models executable - file not found: %s" % exe)
     
+    def get_model_groups(self):
+        """
+        Get known model groups
+
+        :return: Sequence of model group names
+        """
+        return list(self.model_libs.keys()) + list(self.model_exes.keys())
+
     def get_methods(self):
         """ 
         Get known inference methods
