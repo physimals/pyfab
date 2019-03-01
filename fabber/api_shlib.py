@@ -36,14 +36,17 @@ class FabberShlib(FabberApi):
         self._init_handle()
 
     def get_methods(self):
+        self._init_handle()
         self._trycall(self._clib.fabber_get_methods, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
         return self._outbuf.value.decode("UTF-8").splitlines()
 
     def get_models(self, model_group=None):
+        self._init_handle(model_group)
         self._trycall(self._clib.fabber_get_models, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
         return self._outbuf.value.decode("UTF-8").splitlines()
 
     def get_options(self, generic=None, method=None, model=None):
+        self._init_handle()
         if generic is None:
             # For backwards compatibility - no params = generic
             generic = not method and not model
@@ -163,7 +166,7 @@ class FabberShlib(FabberApi):
         extra_outputs = self._outbuf.value.decode("UTF-8").splitlines()
         return shape, params, extra_outputs
 
-    def _init_handle(self):
+    def _init_handle(self, model_group=None):
         # This is required because currently there is no CAPI function to clear the options.
         # So we destroy the old Fabber handle and create a new one
         self._destroy_handle()    
@@ -171,8 +174,15 @@ class FabberShlib(FabberApi):
         if self._handle is None:
             raise RuntimeError("Error creating fabber context (%s)" % self._errbuf.value.decode("UTF-8"))
 
-        for lib in self.model_libs.values():
-            self._trycall(self._clib.fabber_load_models, self._handle, lib, self._errbuf)
+        if model_group is not None:
+            model_group = model_group.lower()
+            if model_group not in self.model_libs:
+                raise ValueError("Unknown model library: %s" % model_group)
+            self._trycall(self._clib.fabber_load_models, self._handle, self.model_libs[model_group], self._errbuf)
+        else:
+            # Load all model libraries
+            for lib in self.model_libs.values():
+                self._trycall(self._clib.fabber_load_models, self._handle, lib, self._errbuf)
 
     def _set_options(self, options):
         # Separate out data options from 'normal' options
