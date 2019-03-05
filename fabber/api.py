@@ -365,7 +365,7 @@ class FabberApi(object):
 
         :return: Name of temporary file
         """
-        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir) as tempf:
+        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir, mode="wt") as tempf:
             for row in matrix:
                 if isinstance(row, collections.Sequence):
                     tempf.write(" ".join(["%f" % val for val in row]) + "\n")
@@ -382,7 +382,7 @@ class FabberApi(object):
         
         :return: Name of temporary file
         """
-        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir) as tempf:
+        with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir, mode="wt") as tempf:
             name = tempf.name
             tempf.close()
             nii.to_filename(name)

@@ -125,7 +125,7 @@ class FabberCl(FabberApi):
 
     def get_methods(self):
         stdout = self._call(listmethods=True)
-        return stdout.splitlines()
+        return [line for line in stdout.splitlines() if line.strip()]
 
     def get_models(self, model_group=None):
         if self._model_groups is None:
@@ -134,7 +134,7 @@ class FabberCl(FabberApi):
             for group in self.model_exes:
                 group = group.lower()
                 stdout = self._call(listmodels=True, model_group=group)
-                self._models[group] = stdout.splitlines()
+                self._models[group] = [line for line in stdout.splitlines() if line.strip()]
                 for model in self._models[group]:
                     self._model_groups[model] = group
         if model_group is not None:
@@ -150,17 +150,17 @@ class FabberCl(FabberApi):
         ret, all_lines = [], []
         if method:
             stdout = self._call(help=True, method=method)
-            lines = stdout.splitlines()
+            lines = [line for line in stdout.splitlines() if line.strip()]
             ret.append(lines[0])
             all_lines += lines[1:]
         if model:
             stdout = self._call(help=True, model=model)
-            lines = stdout.splitlines()
+            lines = [line for line in stdout.splitlines() if line.strip()]
             ret.append(lines[0])
             all_lines += lines[1:]
         if generic:
             stdout = self._call(help=True)
-            lines = stdout.splitlines()
+            lines = [line for line in stdout.splitlines() if line.strip()]
             ret.append(lines[0])
             all_lines += lines[1:]
         
@@ -170,11 +170,11 @@ class FabberCl(FabberApi):
 
     def get_model_params(self, options):
         stdout = self._call(options, listparams=True, data_options=True)
-        return stdout.splitlines()
+        return [line for line in stdout.splitlines() if line.strip()]
         
     def get_model_outputs(self, options):
         stdout = self._call(options, listoutputs=True, data_options=True)
-        return stdout.splitlines()
+        return [line for line in stdout.splitlines() if line.strip()]
 
     def model_evaluate(self, options, param_values, nvols, indata=None, output_name=""):
         params = self.get_model_params(options)
@@ -195,7 +195,7 @@ class FabberCl(FabberApi):
 
         stdout = self._call(options, evaluate=output_name, evaluate_nt=nvols, evaluate_params=params_file, evaluate_data=data_file)
         ret = []
-        for line in stdout.splitlines():
+        for line in [line for line in stdout.splitlines() if line.strip()]:
             try:
                 val = float(line)
                 ret.append(val)
