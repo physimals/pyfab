@@ -100,6 +100,7 @@ class FabberClRun(FabberRun):
             re.compile(r".*[/\\](noise_stdevs)\..+"),
             re.compile(r".*[/\\](finalMVN)\..+"),
             re.compile(r".*[/\\](freeEnergy)\..+"),
+            re.compile(r".*[/\\](freeEnergyHistory)\..+"),
             re.compile(r".*[/\\](modelfit)\..+"),
         ]
         for fname in glob.glob(os.path.join(outdir, "*")):
