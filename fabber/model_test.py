@@ -176,7 +176,7 @@ def generate_test_data(api, options, param_testvalues, nt=10, patchsize=10, nois
                     patch_label += 1
 
     ret = {"clean" : data}
-    if noise is not None:
+    if noise is not None and noise > 0:
         # Add Gaussian noise
         #mean_signal = np.mean(data)
         noise = np.random.normal(0, noise, shape + [nt,])
