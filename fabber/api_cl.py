@@ -5,13 +5,13 @@ PYFAB API using Fabber command line tool(s)
 This API uses Fabber command line tools, run within temporary
 directories, to implement the required functions. For short
 runs this is likely to be slower than the shared-library
-based API however it can be used when the shared library is not 
+based API however it can be used when the shared library is not
 available or there are binary compatibility problems.
 
 Note that Fabber command line tools typically come as one
 per model library, i.e. ``fabber_asl`` which contains a number
 of ASL-MRI related models, ``fabber_cest`` which contains the
-CEST-MRI model, etc. The base ``fabber`` executable is not 
+CEST-MRI model, etc. The base ``fabber`` executable is not
 terribly useful in itself - it only includes generic linear
 and polynomial models.
 """
@@ -37,7 +37,7 @@ def _progress_stdout_handler(progress_cb):
     :return: stdout handler which looks for percentage done reports
              and makes an appropriate call to the progress callback.
 
-    The handler uses a regex to look for a 'percentage' 
+    The handler uses a regex to look for a 'percentage'
     output and calls the progress handler with the number
     found and a 'total' of 100.
     """
@@ -52,7 +52,7 @@ class FabberClException(FabberException):
     """
     Exception originating from the command line
 
-    We try to read the logfile and also attempt to 
+    We try to read the logfile and also attempt to
     determine the message from the stdout
     """
     def __init__(self, stdout, returncode, outdir):
@@ -72,8 +72,9 @@ class FabberClException(FabberException):
         logfile = os.path.join(outdir, "logfile")
         log = ""
         if os.path.exists(logfile):
-            with open(logfile, "r") as logfile: log = logfile.read()
-        
+            with open(logfile, "r") as logfile:
+                log = logfile.read()
+
         FabberException.__init__(self, msg, returncode, log)
 
 class FabberClRun(FabberRun):
@@ -82,31 +83,43 @@ class FabberClRun(FabberRun):
 
     Sets the attributes log, timestamp, timestamp_str and data
     """
-    
-    def __init__(self, outdir):
+
+    def __init__(self, outdir, options, extra_outputs):
         """
         :param outdir: Directory containing Fabber output
         """
         with open(os.path.join(outdir, "logfile"), "r") as logfile:
             log = logfile.read()
-            
+
         data = {}
         alphanum = "[a-zA-Z0-9_]"
-        regexes = [
-            re.compile(r".*[/\\](mean_%s+)\..+" % alphanum),
-            re.compile(r".*[/\\](std_%s+)\..+" % alphanum),
-            re.compile(r".*[/\\](zstat_%s+)\..+" % alphanum),
-            re.compile(r".*[/\\](noise_means)\..+"),
-            re.compile(r".*[/\\](noise_stdevs)\..+"),
-            re.compile(r".*[/\\](finalMVN)\..+"),
-            re.compile(r".*[/\\](freeEnergy)\..+"),
-            re.compile(r".*[/\\](freeEnergyHistory)\..+"),
-            re.compile(r".*[/\\](modelfit)\..+"),
-        ]
+        regexes = []
+
+        if "save-mean" in options:
+            regexes.append(re.compile(r".*[/\\](mean_%s+)\..+" % alphanum))
+        if "save-std" in options:
+            regexes.append(re.compile(r".*[/\\](std_%s+)\..+" % alphanum))
+        if "save-zstat" in options:
+            regexes.append(re.compile(r".*[/\\](zstat_%s+)\..+" % alphanum))
+        if "save-noise-mean" in options:
+            regexes.append(re.compile(r".*[/\\](noise_means)\..+"))
+        if "save-noise-std" in options:
+            regexes.append(re.compile(r".*[/\\](noise_stdevs)\..+"))
+        if "save-free-energy" in options:
+            regexes.append(re.compile(r".*[/\\](freeEnergy)\..+"))
+            regexes.append(re.compile(r".*[/\\](freeEnergyHistory)\..+"))
+        if "save-mvn" in options:
+            regexes.append(re.compile(r".*[/\\](finalMVN)\..+"))
+        if "save-model-fit" in options:
+            regexes.append(re.compile(r".*[/\\](modelfit)\..+"))
+        for output in extra_outputs:
+            regexes.append(re.compile(r".*[/\\](%s)\..+" % output))
+
         for fname in glob.glob(os.path.join(outdir, "*")):
             for regex in regexes:
                 match = regex.match(fname)
-                if match: data[match.group(1)] = nib.load(fname).get_data()
+                if match:
+                    data[match.group(1)] = nib.load(fname).get_data()
 
         FabberRun.__init__(self, data, log)
 
@@ -142,7 +155,7 @@ class FabberCl(FabberApi):
             return self._models.get(model_group.lower(), [])
         else:
             return list(self._model_groups.keys())
-       
+
     def get_options(self, generic=None, method=None, model=None):
         if generic is None:
             # For backwards compatibility - no params = generic
@@ -164,7 +177,7 @@ class FabberCl(FabberApi):
             lines = [line for line in stdout.splitlines() if line.strip()]
             ret.append(lines[0])
             all_lines += lines[1:]
-        
+
         opts = self._parse_options(all_lines)
         ret.insert(0, opts)
         return tuple(ret)
@@ -172,7 +185,7 @@ class FabberCl(FabberApi):
     def get_model_params(self, options):
         stdout = self._call(options, listparams=True, data_options=True)
         return [line for line in stdout.splitlines() if line.strip()]
-        
+
     def get_model_outputs(self, options):
         stdout = self._call(options, listoutputs=True, data_options=True)
         return [line for line in stdout.splitlines() if line.strip()]
@@ -198,9 +211,8 @@ class FabberCl(FabberApi):
         ret = []
         for line in [line for line in stdout.splitlines() if line.strip()]:
             try:
-                val = float(line)
-                ret.append(val)
-            except:
+                ret.append(float(line))
+            except ValueError:
                 warnings.warn("Unexpected output: %s" % line)
         return ret
 
@@ -217,8 +229,9 @@ class FabberCl(FabberApi):
         try:
             outdir = tempfile.mkdtemp("fabberout")
             out_subdir = os.path.join(outdir, "fabout")
+            extra_outputs = self.get_model_outputs(options)
             self._call(options, output=out_subdir, stdout_handler=stdout_handler, simple_output=True, data_options=True)
-            return FabberClRun(out_subdir)
+            return FabberClRun(out_subdir, self._normalize_options(options), extra_outputs)
         finally:
             if outdir is not None:
                 shutil.rmtree(outdir)
@@ -226,12 +239,12 @@ class FabberCl(FabberApi):
     def _parse_options(self, lines):
         """
         Parse option specifiers like:
-        
+
             --save-mean [BOOL,NOT REQUIRED,NO DEFAULT]
             Output the parameter means.
         """
         options = []
-        current_option = None
+        current_option = {}
         option_regex = re.compile(r'--(.+)\s\[(.+),(.+),(.+)]')
         for line in lines:
             match = option_regex.match(line)
@@ -286,15 +299,15 @@ class FabberCl(FabberApi):
 
             # Run the process and return stdout
             stdout = six.StringIO()
-            p = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             while 1:
-                retcode = p.poll() # returns None while subprocess is running
-                line = p.stdout.readline().decode('utf-8')
+                retcode = process.poll() # returns None while subprocess is running
+                line = process.stdout.readline().decode('utf-8')
                 stdout.write(line)
                 stdout.write("\n")
                 if stdout_handler is not None:
                     stdout_handler(line)
-                if line == "" and retcode is not None: 
+                if line == "" and retcode is not None:
                     break
 
             #print(stdout)
@@ -384,5 +397,5 @@ class FabberCl(FabberApi):
                     cl_args.append("--%s=%s" % (key, value))
                 else:
                     cl_args.append("--%s" % key)
-                
+
         return cl_args
