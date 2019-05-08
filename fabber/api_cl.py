@@ -32,6 +32,10 @@ import nibabel as nib
 
 from .api import FabberApi, FabberException, FabberRun
 
+# Maximum size allowed in Fabber logfile to avoid multiple errors 
+# eating all the memory
+MAX_LOG_SIZE = 100000
+
 def _progress_stdout_handler(progress_cb):
     """
     :return: stdout handler which looks for percentage done reports
@@ -89,7 +93,7 @@ class FabberClRun(FabberRun):
         :param outdir: Directory containing Fabber output
         """
         with open(os.path.join(outdir, "logfile"), "r") as logfile:
-            log = logfile.read()
+            log = logfile.read()[:MAX_LOG_SIZE]
 
         data = {}
         alphanum = "[a-zA-Z0-9_]"
@@ -186,6 +190,10 @@ class FabberCl(FabberApi):
         stdout = self._call(options, listparams=True, data_options=True)
         return [line for line in stdout.splitlines() if line.strip()]
 
+    def get_model_param_descs(self, options):
+        stdout = self._call(options, descparams=True, data_options=True)
+        return self._parse_params(stdout.splitlines())
+
     def get_model_outputs(self, options):
         stdout = self._call(options, listoutputs=True, data_options=True)
         return [line for line in stdout.splitlines() if line.strip()]
@@ -265,7 +273,7 @@ class FabberCl(FabberApi):
                     current_option["default"] = current_option["default"].split("=", 1)[1]
 
                 options.append(current_option)
-            elif current_option is not None:
+            elif current_option:
                 desc = line.strip()
                 if desc:
                     current_option["description"] += desc + " "
