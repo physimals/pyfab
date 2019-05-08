@@ -299,6 +299,21 @@ class FabberApi(object):
         """
         pass
         
+    def get_model_param_descs(self, options):
+        """ 
+        Get model parameters and descriptions. 
+        
+        This is an extension to ``get_model_params``
+        which returns not only the parameter names but their descriptions and units as
+        well (if the model provides them - many do not!)
+        
+        :param options: Options dictionary
+        :return: Sequence of tuples each containing parameter name, description and units.
+                 If either of description or units were not provided, empty strings are
+                 returned in their place. 
+        """
+        pass
+        
     def get_model_outputs(self, options):
         """ 
         Get additional model timeseries outputs
@@ -416,3 +431,23 @@ class FabberApi(object):
             if key is not None:
                 options_normalized[key] = value
         return options_normalized
+
+    def _parse_params(self, lines):
+        """
+        Parse the model parameter output 
+        """
+        params = []
+        for line in lines:
+            if line.strip():
+                # Format of --listparams is <name> [<desc> [(units: <units>)]]
+                parts = line.split(" ", 1)
+                param = [parts[0], "", ""]
+                if len(parts) > 1:
+                    units_match = re.search(r"(.+?)(?:\s\(units: (.*)\))?$", parts[1])
+                    if units_match:
+                        param[1] = units_match.group(1)
+                        param[2] = units_match.group(2)
+                    else:
+                        param[1] = parts[1]
+                params.append(param)
+        return [params[0] for param in params] # FIXME temp to avoid breakage

@@ -81,6 +81,14 @@ class FabberShlib(FabberApi):
     def get_model_params(self, options):
         return self._init_run(options)[1]
         
+    def get_model_param_descs(self, options):
+        self._init_run(options)
+        # Set the arg types here because we do not know if this method will actually exist in the
+        # shared library but if the user calls this method we assume they know it does.
+        self._clib.fabber_get_model_param_descs.argtypes = [c_void_p, c_uint, c_char_p, c_char_p]
+        self._trycall(self._clib.fabber_get_model_param_descs, self._handle, len(self._outbuf), self._outbuf, self._errbuf)
+        return self._parse_params(self._outbuf.value.decode("UTF-8").splitlines())
+
     def get_model_outputs(self, options):
         return self._init_run(options)[2]
 
