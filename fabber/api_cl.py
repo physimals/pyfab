@@ -116,6 +116,8 @@ class FabberClRun(FabberRun):
             regexes.append(re.compile(r".*[/\\](finalMVN)\..+"))
         if "save-model-fit" in options:
             regexes.append(re.compile(r".*[/\\](modelfit)\..+"))
+        if "save-residuals" in options:
+            regexes.append(re.compile(r".*[/\\](residuals)\..+"))
         for output in extra_outputs:
             regexes.append(re.compile(r".*[/\\](%s)\..+" % output))
 
