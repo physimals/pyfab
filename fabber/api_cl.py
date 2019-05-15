@@ -59,7 +59,7 @@ class FabberClException(FabberException):
     We try to read the logfile and also attempt to
     determine the message from the stdout
     """
-    def __init__(self, stdout, returncode, outdir):
+    def __init__(self, stdout="", returncode=-1, outdir=None, log=""):
         """
         :param stdout: Standard output/error combined
         :param returncode: Return code from executable
@@ -73,13 +73,18 @@ class FabberClException(FabberException):
                 grabnext = False
             if line.startswith("Exception"):
                 grabnext = True
-        logfile = os.path.join(outdir, "logfile")
-        log = ""
-        if os.path.exists(logfile):
-            with open(logfile, "r") as logfile:
-                log = logfile.read()
+        log = log
+        if outdir:
+            logfile = os.path.join(outdir, "logfile")
+            if os.path.exists(logfile):
+                with open(logfile, "r") as logfile:
+                    log = logfile.read()
 
         FabberException.__init__(self, msg, returncode, log)
+
+        # Required to make unpickling work
+        # see https://stackoverflow.com/questions/41808912/cannot-unpickle-exception-subclass
+        self.args = (stdout, returncode, None, log)
 
 class FabberClRun(FabberRun):
     """
