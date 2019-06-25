@@ -6,6 +6,7 @@ from .api import FabberException, FabberRun, percent_progress, find_fabber
 from .api_shlib import FabberShlib
 from .api_cl import FabberCl
 from .model_test import self_test, generate_test_data
+from ._version import __version__
 
 def Fabber(*search_dirs):
     """
@@ -20,4 +21,4 @@ def Fabber(*search_dirs):
     else:
         return FabberCl(core_exe=coreexe, model_exes=exes)
         
-__all__ = ["Fabber", "FabberException", "FabberRun", "self_test", "generate_test_data", "percent_progress"]
+__all__ = ["Fabber", "FabberException", "FabberRun", "self_test", "generate_test_data", "percent_progress", "__version__"]
