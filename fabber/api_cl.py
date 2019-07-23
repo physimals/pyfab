@@ -32,7 +32,7 @@ import nibabel as nib
 
 from .api import FabberApi, FabberException, FabberRun
 
-# Maximum size allowed in Fabber logfile to avoid multiple errors 
+# Maximum size allowed in Fabber logfile to avoid multiple errors
 # eating all the memory
 MAX_LOG_SIZE = 100000
 
@@ -215,14 +215,15 @@ class FabberCl(FabberApi):
                 plist.append(param_values[param])
 
         if len(param_values) != len(params):
-            raise FabberException("Incorrect number of parameters specified: expected %i (%s)" % (len(params), ",".join(params)))
+            raise FabberException("Incorrect number of parameters: expected %i (%s)" % (len(params), ",".join(params)))
 
         params_file = self._write_temp_matrix(plist)
         data_file = None
         if indata is not None:
             data_file = self._write_temp_matrix(indata)
 
-        stdout = self._call(options, evaluate=output_name, evaluate_nt=nvols, evaluate_params=params_file, evaluate_data=data_file)
+        stdout = self._call(options, evaluate=output_name, evaluate_nt=nvols,
+                            evaluate_params=params_file, evaluate_data=data_file)
         ret = []
         for line in [line for line in stdout.splitlines() if line.strip()]:
             try:
@@ -325,7 +326,6 @@ class FabberCl(FabberApi):
                 if line == "" and retcode is not None:
                     break
 
-            #print(stdout)
             if retcode != 0:
                 raise FabberClException(stdout.getvalue(), retcode, options.get("output", ""))
             return stdout.getvalue()
@@ -366,7 +366,9 @@ class FabberCl(FabberApi):
         indir = tempfile.mkdtemp("fabberin")
         try:
             options = dict(options)
-            model_options = self.get_options(model=options.get("model", None), method=options.get("method", None), generic=True)[0]
+            model_options = self.get_options(model=options.get("model", None),
+                                             method=options.get("method", None),
+                                             generic=True)[0]
             for key in list(options.keys()):
                 if self.is_data_option(key, model_options):
                     # Allow input data to be given as Numpy array, Nifti image or filename. It

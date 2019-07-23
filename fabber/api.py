@@ -4,11 +4,13 @@ PYFAB API
 
 PYFAB can interface with Fabber in two ways:
 
- - Via a wrapper of the command line tools (generally one per model library, e.g. ``fabber_asl``, ``fabber_cest``, etc)
- - By accessing the C API directly using the core shared library ``libfabbercore_shared.so`` (in conjunction with model libraries such as ``libfabber_models_asl.so``).
+ - Via a wrapper of the command line tools (generally one per model library, e.g. ``fabber_asl``,
+   ``fabber_cest``, etc)
+ - By accessing the C API directly using the core shared library ``libfabbercore_shared.so``
+   (in conjunction with model libraries such as ``libfabber_models_asl.so``).
 
 PYFAB can use either approach. The shared library is more elegant and probably a little faster
-for very short runs, however the shared library is not available in all installations - in 
+for very short runs, however the shared library is not available in all installations - in
 particular it is not currently included in FSL.
 
 The FabberApi interface described below is implemented for each option. So to work with the command line
@@ -77,12 +79,13 @@ def find_fabber(*extra_search_dirs):
     :param search_dirs: Extra search directories to use to look for Fabber libraries and executables. By default will
                         use the environment variables FABBERDIR, FSLDEVDIR and FSLDIR in that order.
 
-    :return: A tuple of core library, core executable dictionary of model group libraries, dictionary of model group executables
+    :return: A tuple of core library, core executable dictionary of model group libraries, dictionary of
+             model group executables
     """
     exe, lib, model_libs, model_exes = None, None, {}, {}
     search_dirs = list(extra_search_dirs)
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):
-        if envdir in os.environ: 
+        if envdir in os.environ:
             search_dirs.append(os.environ[envdir])
 
     for search_dir in search_dirs:
@@ -98,11 +101,11 @@ def find_fabber(*extra_search_dirs):
             if group_name != "var":
                 # Old executable which messes things up sometimes!
                 model_exes[group_name] = model_exes.get(group_name, model_exe)
-    
+
     return lib, exe, model_libs, model_exes
 
 def load_options_files(fname):
-    """ 
+    """
     Load options for a Fabber run from an .fab options file
 
     :param fname: File name of options file
@@ -128,7 +131,7 @@ def save_options_file(options, fname):
     """
     with open(fname, "w") as fabfile:
         dump_options_file(options, fabfile)
-        
+
 def dump_options_file(options, stream):
     """
     Dump to an output stream
@@ -170,12 +173,12 @@ class FabberRun(object):
 
         This aspires to write the output in a form as close to the command line tool
         as possible, however exact agreement is not guaranteed
-        
+
         :param dirname: Name of directory to write to, will be created if it does not exist
         """
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-        
+
         if not os.path.isdir(dirname):
             raise IOError("Specified directory '%s' exists but is not a directory" % dirname)
 
@@ -189,7 +192,7 @@ class FabberRun(object):
         for data_name, arr in self.data.items():
             nii = nib.Nifti1Image(arr, header=header, affine=affine)
             nii.to_filename(os.path.join(dirname, "%s%s" % (data_name, extension)))
-        
+
         with open(os.path.join(dirname, "logfile"), "w") as logfile:
             logfile.write(self.log)
 
@@ -240,14 +243,14 @@ class FabberApi(object):
         for lib in self.model_libs.values():
             if not os.path.isfile(lib):
                 raise FabberException("Invalid models library - file not found: %s" % lib)
-           
+
         if model_exes is not None:
             self.model_exes = dict(model_exes)
 
         for exe in self.model_exes.values():
             if not os.path.isfile(exe):
                 raise FabberException("Invalid models executable - file not found: %s" % exe)
-    
+
     def get_model_groups(self):
         """
         Get known model groups
@@ -257,17 +260,17 @@ class FabberApi(object):
         return list(self.model_libs.keys()) + list(self.model_exes.keys())
 
     def get_methods(self):
-        """ 
+        """
         Get known inference methods
-        
+
         :return: Sequence of known inference method names
         """
         pass
 
     def get_models(self, model_group=None):
-        """ 
+        """
         Get known models
-        
+
         :param model_group: If specified, return only models in this group
         :return: Sequence of known model names
         """
@@ -283,41 +286,41 @@ class FabberApi(object):
 
         If no parameters are specified, generic options only are returned
 
-        :return: Tuple of options, method description, model_description, generic_description. 
-                 Descriptions are only included if relevant options were requestsed. Options 
+        :return: Tuple of options, method description, model_description, generic_description.
+                 Descriptions are only included if relevant options were requestsed. Options
                  is a list of options, each in the form of a dictionary.
                  Descriptions are simple text descriptions of the method or model
         """
         pass
 
     def get_model_params(self, options):
-        """ 
+        """
         Get model parameters
-        
+
         :param options: Options dictionary
         :return: Sequence of model parameter names
         """
         pass
-        
+
     def get_model_param_descs(self, options):
-        """ 
-        Get model parameters and descriptions. 
-        
+        """
+        Get model parameters and descriptions.
+
         This is an extension to ``get_model_params``
         which returns not only the parameter names but their descriptions and units as
         well (if the model provides them - many do not!)
-        
+
         :param options: Options dictionary
         :return: Sequence of tuples each containing parameter name, description and units.
                  If either of description or units were not provided, empty strings are
-                 returned in their place. 
+                 returned in their place.
         """
         pass
-        
+
     def get_model_outputs(self, options):
-        """ 
+        """
         Get additional model timeseries outputs
-        
+
         :param options: Fabber options
         :return: Sequence of names of additional model timeseries outputs
         """
@@ -337,7 +340,7 @@ class FabberApi(object):
         """
         Run fabber
 
-        :param options: Fabber options as key/value dictionary. Data may be passed as Numpy arrays, Nifti 
+        :param options: Fabber options as key/value dictionary. Data may be passed as Numpy arrays, Nifti
                         images or strings (which are interpreted as filenames)
         :param progress_cb: Callable which will be called periodically during processing. It will be passed
                             two numeric parameters, the first a measure of work done and the second a measure
@@ -354,13 +357,14 @@ class FabberApi(object):
         :param options: Options as key/value dict
 
         :return: True if ``key`` is a voxel data option
-        """ 
+        """
         if key in ("data", "mask", "suppdata", "continue-from-mvn"):
             return True
         elif key.startswith("PSP_byname") and key.endswith("_image"):
             return True
         else:
-            return key in [option["name"] for option in options if option["type"] in (self.IMAGE, self.TIMESERIES, self.MVN)]
+            return key in [option["name"] for option in options
+                           if option["type"] in (self.IMAGE, self.TIMESERIES, self.MVN)]
 
     def is_matrix_option(self, key, options):
         """
@@ -394,7 +398,7 @@ class FabberApi(object):
 
         :param nii: ``nibabel.Nifti1Image``
         :param tempdir: Optional temporary directory
-        
+
         :return: Name of temporary file
         """
         with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir, mode="wt") as tempf:
@@ -411,16 +415,16 @@ class FabberApi(object):
 
          - Key separators can be specified as underscores or hyphens as hyphens are not allowed in Python
            keywords. They are always passed as hyphens except for the anomolous PSP_byname options
-        
+
          - Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
            value True, the actual option value passed must be blank
-        """   
+        """
         options_normalized = {}
         for key, value in options.items():
             if not key.startswith("PSP_"):
                 key = key.replace("_", "-")
 
-            if value is None: 
+            if value is None:
                 key, value = None, None
             elif isinstance(value, bool):
                 if value:
@@ -434,7 +438,7 @@ class FabberApi(object):
 
     def _parse_params(self, lines):
         """
-        Parse the model parameter output 
+        Parse the model parameter output
         """
         params = []
         for line in lines:
@@ -450,4 +454,5 @@ class FabberApi(object):
                     else:
                         param[1] = parts[1]
                 params.append(param)
-        return [params[0] for param in params] # FIXME temp to avoid breakage
+        # FIXME temp to avoid incompatibility when units are not expected
+        return [params[0] for param in params]
