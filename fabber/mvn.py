@@ -1,6 +1,9 @@
 """
-Manipulation of a voxelwise multivariate normal distribution as returned by Fabber
-as its posterior output (finalMVN)
+Multivariate normal distribution processing
+===========================================
+
+This module provides support for manipulation of a voxelwise multivariate normal 
+distribution (MVN) as returned by Fabber as its posterior output (finalMVN)
 
 The intention of this module is to replace the functionality of the
 mvntool program, i.e. to support editing parameter mean and variance
