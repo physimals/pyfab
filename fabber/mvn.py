@@ -10,7 +10,13 @@ values.
 import math
 
 import numpy as np
-from fsl.data.image import Image
+
+try:
+    from fsl.data.image import Image
+except ImportError:
+    # Without fslpy this module will not work, however we don't
+    # want to break imports so this will do as a kludge...
+    Image = object
 
 class MVN(Image):
     """
