@@ -9,6 +9,7 @@ PYFAB API reference
    api_cl
    api_shlib
    model_test
+   mvn
 
 .. automodule:: fabber
 
