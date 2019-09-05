@@ -21,6 +21,7 @@ CEST, DSC, dualecho and DCE data.
    :maxdepth: 1
    :caption: Contents:
   
+   install
    tutorial
    api
 
