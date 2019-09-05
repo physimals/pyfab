@@ -27,6 +27,14 @@ Almost identically, to do the same thing using the shared library API::
     >>> fab = FabberShlib()
     >>> fab.get_models(model_group="asl")
     [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
+
+For convenience the generic class Fabber is defined to be FabberShlib where a shared core library 
+exists, and FabberCl otherwise. So if you don't want to have to worry about which to use, just do::
+
+    >>> from fabber import Fabber
+    >>> fab = Fabber()
+    >>> fab.get_models(model_group="asl")
+    [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
 """
 
 import os
