@@ -153,10 +153,14 @@ class FabberException(RuntimeError):
     def __init__(self, msg, errcode=None, log=None):
         self.errcode = errcode
         self.log = log
+        self.msg = msg
         if errcode is not None:
             RuntimeError.__init__(self, "%i: %s" % (errcode, msg))
         else:
             RuntimeError.__init__(self, msg)
+
+    def __str__(self):
+        return "FabberException: %i: %s" % (self.errcode, self.msg)
 
 class FabberRun(object):
     """

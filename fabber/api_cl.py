@@ -68,10 +68,12 @@ class FabberClException(FabberException):
         grabnext = False
         msg = ""
         for line in stdout.splitlines():
-            if grabnext:
+            if line == "":
+                continue
+            elif grabnext:
                 msg = line.strip()
                 grabnext = False
-            if line.startswith("Exception"):
+            elif "exception" in line.lower():
                 grabnext = True
         log = log
         if outdir:
