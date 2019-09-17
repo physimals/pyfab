@@ -27,6 +27,14 @@ Almost identically, to do the same thing using the shared library API::
     >>> fab = FabberShlib()
     >>> fab.get_models(model_group="asl")
     [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
+
+For convenience the generic class Fabber is defined to be FabberShlib where a shared core library 
+exists, and FabberCl otherwise. So if you don't want to have to worry about which to use, just do::
+
+    >>> from fabber import Fabber
+    >>> fab = Fabber()
+    >>> fab.get_models(model_group="asl")
+    [u'asl_2comp', u'asl_multiphase', u'aslrest', u'buxton', u'linear', u'poly', u'quasar', u'satrecov', u'turboquasar']
 """
 
 import os
@@ -77,10 +85,10 @@ def find_fabber(*extra_search_dirs):
     Find the Fabber executable, core library and model libraries, or return None if not found
 
     :param search_dirs: Extra search directories to use to look for Fabber libraries and executables. By default will
-                        use the environment variables FABBERDIR, FSLDEVDIR and FSLDIR in that order.
+                        use the environment variables ``FABBERDIR``, ``FSLDEVDIR`` and ``FSLDIR`` in that order.
 
-    :return: A tuple of core library, core executable dictionary of model group libraries, dictionary of
-             model group executables
+    :return: A tuple of: core library, core executable, dictionary of model group libraries, 
+             dictionary of model group executables
     """
     exe, lib, model_libs, model_exes = None, None, {}, {}
     search_dirs = list(extra_search_dirs)
@@ -134,7 +142,7 @@ def save_options_file(options, fname):
 
 def dump_options_file(options, stream):
     """
-    Dump to an output stream
+    Dump options to an output stream
 
     :param stream: Output stream (e.g. stdout or fileobj)
     """
@@ -149,6 +157,12 @@ def dump_options_file(options, stream):
 class FabberException(RuntimeError):
     """
     Thrown if there is an error using the Fabber executable or library
+
+    :ivar errcode: Error code from Fabber
+    :ivar log: Log output if available
+
+    The error string (if available) is passed to the RuntimeError
+    constructor.
     """
     def __init__(self, msg, errcode=None, log=None):
         self.errcode = errcode
@@ -165,6 +179,11 @@ class FabberException(RuntimeError):
 class FabberRun(object):
     """
     The result of a Fabber run
+
+    :ivar data: A mapping from output name (e.g. ``mean_ftiss`` to data object)
+    :ivar log: Log output from fabber as a string
+    :ivar timestamp: Timestamp of the run as a Python datetime object
+    :ivar timestamp_str: String version of the timestamp
     """
     def __init__(self, data, log):
         self.data = data
@@ -219,7 +238,8 @@ class FabberRun(object):
 
 class FabberApi(object):
     """
-    Interface to Fabber, either using shared library or command line wrapper
+    Abstract interface to Fabber, which can be implemented either using the shared library or 
+    command line wrapper
     """
 
     BOOL = "BOOL"

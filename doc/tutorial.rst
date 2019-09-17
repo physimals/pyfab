@@ -7,17 +7,24 @@ API reference.
 Creating the API interface object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A command line interface object is created by::
+Most of the time the API interface object is created by::
+
+    from fabber import Fabber
+    fab = Fabber()
+
+This interface will either call Fabber using the shared library interface (if available)
+or if not using the command line directly. If you particularly want to use the command
+line interface, you can explicitly create it using::
 
     from fabber import FabberCl
     fab = FabberCl()
 
-A shared library interface object is created by::
+A shared library interface object can be explicitly created by::
 
     from fabber import FabberShlib
     fab = FabberShlib()
 
-Since both objects implement the same interface, for the remainder of this tutorial we will
+Since the resulting objects implement the same interface, for the remainder of this tutorial we will
 not specify which is being used.
 
 Querying models

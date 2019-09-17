@@ -8,9 +8,8 @@ PYFAB API reference
    api_generic
    api_cl
    api_shlib
+   mvn
    model_test
-
-.. automodule:: fabber
 
 Indices and tables
 ------------------

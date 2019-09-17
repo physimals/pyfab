@@ -1,2 +1,0 @@
-Obtaining the PYFAB software
-============================
