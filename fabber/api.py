@@ -80,7 +80,7 @@ def _find_file(current_value, search_dir, search_for):
         else:
             return current_value
 
-def find_fabber(*extra_search_dirs):
+def find_fabber(*extra_search_dirs, **kwargs):
     """
     Find the Fabber executable, core library and model libraries, or return None if not found
 
@@ -90,11 +90,15 @@ def find_fabber(*extra_search_dirs):
     :return: A tuple of: core library, core executable, dictionary of model group libraries, 
              dictionary of model group executables
     """
+    debug = kwargs.get("debug", False)
     exe, lib, model_libs, model_exes = None, None, {}, {}
     search_dirs = list(extra_search_dirs)
     for envdir in ("FABBERDIR", "FSLDEVDIR", "FSLDIR"):
         if envdir in os.environ:
             search_dirs.append(os.environ[envdir])
+
+    if debug:
+        sys.stderr.write("Search dirs: %s\n" % search_dirs)
 
     for search_dir in search_dirs:
         exe = _find_file(exe, search_dir, _BIN_FORMAT % "fabber")
@@ -106,9 +110,13 @@ def find_fabber(*extra_search_dirs):
         exe_regex = re.compile(r'.*fabber_(.+)\.?.*')
         for model_exe in glob.glob(os.path.join(search_dir, _BIN_FORMAT % "fabber_*")):
             group_name = exe_regex.match(model_exe).group(1).lower()
+            if debug:
+                sys.stderr.write("EXE: %s\n" % group_name)
             if group_name != "var":
                 # Old executable which messes things up sometimes!
                 model_exes[group_name] = model_exes.get(group_name, model_exe)
+                if debug:
+                    sys.stderr.write("fname: %s\n" % model_exes[group_name])
 
     return lib, exe, model_libs, model_exes
 
@@ -189,6 +197,7 @@ class FabberRun(object):
         self.data = data
         self.log = log
         self.timestamp, self.timestamp_str = self._get_log_timestamp(self.log)
+        self.ref_nii = None
 
     def write_to_dir(self, dirname, ref_nii=None, extension=".nii.gz"):
         """
@@ -205,7 +214,10 @@ class FabberRun(object):
         if not os.path.isdir(dirname):
             raise IOError("Specified directory '%s' exists but is not a directory" % dirname)
 
-        if ref_nii:
+        if ref_nii is None:
+            ref_nii = self.ref_nii
+
+        if ref_nii is not None:
             header = ref_nii.header
             affine = ref_nii.header.get_best_affine()
         else:
@@ -252,7 +264,8 @@ class FabberApi(object):
     MVN = "MVN"
     MATRIX = "MATRIX"
 
-    def __init__(self, core_lib=None, model_libs=None, core_exe=None, model_exes=None):
+    def __init__(self, core_lib=None, model_libs=None, core_exe=None, model_exes=None, **kwargs):
+        self._debug = kwargs.get("debug", False)
         self.core_lib, self.core_exe, self.model_libs, self.model_exes = find_fabber()
 
         if core_lib:
