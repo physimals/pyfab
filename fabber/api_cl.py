@@ -100,11 +100,12 @@ class FabberClRun(FabberRun):
         :param outdir: Directory containing Fabber output
         """
         with open(os.path.join(outdir, "logfile"), "r") as logfile:
-            log = logfile.read()[:MAX_LOG_SIZE]
+            log = logfile.read(MAX_LOG_SIZE)
 
         data = {}
         alphanum = "[a-zA-Z0-9_]"
         regexes = []
+        nii = None
 
         if "save-mean" in options:
             regexes.append(re.compile(r".*[/\\](mean_%s+)\..+" % alphanum))
@@ -132,17 +133,22 @@ class FabberClRun(FabberRun):
             for regex in regexes:
                 match = regex.match(fname)
                 if match:
-                    data[match.group(1)] = nib.load(fname).get_data()
+                    nii = nib.load(fname)
+                    data[match.group(1)] = nii.get_data()
 
         FabberRun.__init__(self, data, log)
+
+        # Assuming we managed to load some data at some point, use the NII header
+        # as the reference for future saving of the data to an output directory
+        self.ref_nii = nii
 
 class FabberCl(FabberApi):
     """
     Interface to Fabber using command line
     """
 
-    def __init__(self, core_exe=None, model_exes=None):
-        FabberApi.__init__(self, core_exe=core_exe, model_exes=model_exes)
+    def __init__(self, core_exe=None, model_exes=None, **kwargs):
+        FabberApi.__init__(self, core_exe=core_exe, model_exes=model_exes, **kwargs)
 
         if core_exe is not None and not os.path.isfile(self.core_exe):
             raise FabberException("Invalid core executable - file not found: %s" % self.core_exe)
@@ -225,7 +231,7 @@ class FabberCl(FabberApi):
             data_file = self._write_temp_matrix(indata)
 
         stdout = self._call(options, evaluate=output_name, evaluate_nt=nvols,
-                            evaluate_params=params_file, evaluate_data=data_file)
+                            evaluate_params=params_file, evaluate_data=data_file, data_options=True)
         ret = []
         for line in [line for line in stdout.splitlines() if line.strip()]:
             try:
@@ -234,7 +240,7 @@ class FabberCl(FabberApi):
                 warnings.warn("Unexpected output: %s" % line)
         return ret
 
-    def run(self, options, progress_cb=None):
+    def run(self, options, progress_cb=None, **kwargs):
         if "data" not in options:
             raise ValueError("Main voxel data not provided")
 
@@ -329,7 +335,10 @@ class FabberCl(FabberApi):
                     break
 
             if retcode != 0:
-                raise FabberClException(stdout.getvalue(), retcode, options.get("output", ""))
+                errmsg = stdout.getvalue()
+                if self._debug:
+                    errmsg = exe + " " + " ".join(cl_args) + "\n" + errmsg
+                raise FabberClException(errmsg, retcode, options.get("output", ""))
             return stdout.getvalue()
         finally:
             if indir is not None:
@@ -380,6 +389,10 @@ class FabberCl(FabberApi):
                         pass
                     elif isinstance(value, six.string_types):
                         options[key] = value
+                    elif isinstance(value, (int, float)):
+                        # Work around bug in some versions of fabber where some numeric options
+                        # are miscategorized as matrix options
+                        options[key] = str(value)
                     elif isinstance(value, nib.Nifti1Image):
                         options[key] = self._write_temp_nifti(value, indir)
                     elif isinstance(value, np.ndarray):
