@@ -22,8 +22,8 @@ class FabberShlib(FabberApi):
     Interface to Fabber in library mode using simplified C API
     """
 
-    def __init__(self, core_lib=None, model_libs=None):
-        FabberApi.__init__(self, core_lib=core_lib, model_libs=model_libs)
+    def __init__(self, core_lib=None, model_libs=None, **kwargs):
+        FabberApi.__init__(self, core_lib=core_lib, model_libs=model_libs, **kwargs)
 
         if self.core_lib is None or not os.path.isfile(self.core_lib):
             raise FabberException("Invalid core library - file not found: %s" % self.core_lib)
