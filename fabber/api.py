@@ -455,6 +455,9 @@ class FabberApi(object):
 
          - Fabber interprets boolean values as 'option given=True, not given=False'. For options with the
            value True, the actual option value passed must be blank
+
+         - If option value is a list or tuple (ONLY these types) it will automatically expand out into
+           Fabber-style list options, e.g. ti=[0.5, 1.0, 1.5] will generate ti1=0.5, ti2=1.0, ti3=1.5
         """
         options_normalized = {}
         for key, value in options.items():
@@ -470,7 +473,11 @@ class FabberApi(object):
                     key, value = None, None
 
             if key is not None:
-                options_normalized[key] = value
+                if isinstance(value, (list, tuple)):
+                    for idx, val in enumerate(value):
+                        options_normalized["%s%i" % (key, idx+1)] = val
+                else:
+                    options_normalized[key] = value
         return options_normalized
 
     def _parse_params(self, lines):
