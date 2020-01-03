@@ -437,7 +437,7 @@ class FabberApi(object):
         with tempfile.NamedTemporaryFile(prefix="fab", delete=False, dir=tempdir, mode="wt") as tempf:
             for row in matrix:
                 if isinstance(row, collections.Sequence):
-                    tempf.write(" ".join(["%f" % val for val in row]) + "\n")
+                    tempf.write(" ".join(["%.6g" % val for val in row]) + "\n")
                 else:
                     tempf.write("%f\n" % row)
             return tempf.name
