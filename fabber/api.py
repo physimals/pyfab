@@ -391,7 +391,7 @@ class FabberApi(object):
     def is_data_option(self, key, options):
         """
         :param key: Option name
-        :param options: Options as key/value dict
+        :param options: Known model options as key/value dict
 
         :return: True if ``key`` is a voxel data option
         """
@@ -406,11 +406,24 @@ class FabberApi(object):
     def is_matrix_option(self, key, options):
         """
         :param key: Option name
-        :param option: Options as key/value dict
+        :param option: Known model options as key/value dict
 
         :return True if ``key`` is a matrix option
         """
         return key in [option["name"] for option in options if option["type"] == self.MATRIX]
+
+    def is_sequence_option(self, key, options):
+        """
+        :param key: Option name
+        :param option: Known model options as key/value dict
+
+        :return True if ``key`` matches a sequence option. This is the case if a known model
+                option contains ``<n>`` and, when this is removed, the remainder matches the
+                supplied key. For example if the model defines an option ``pld<n>`` and the user
+                supplies an option with the key ``pld`` then (if the value is a sequence) this 
+                can be expanded into --pld1=<val1> --pld2=<val2> etc. 
+        """
+        return key in [option["name"].replace("<n>", "") for option in options if "<n>" in option["name"]]
 
     def _write_temp_matrix(self, matrix, tempdir=None):
         """
@@ -473,11 +486,7 @@ class FabberApi(object):
                     key, value = None, None
 
             if key is not None:
-                if isinstance(value, (list, tuple)):
-                    for idx, val in enumerate(value):
-                        options_normalized["%s%i" % (key, idx+1)] = val
-                else:
-                    options_normalized[key] = value
+                options_normalized[key] = value
         return options_normalized
 
     def _parse_params(self, lines):

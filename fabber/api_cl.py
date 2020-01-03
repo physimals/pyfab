@@ -413,6 +413,11 @@ class FabberCl(FabberApi):
                         options[key] = self._write_temp_matrix(value, indir)
                     else:
                         raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
+
+                elif self.is_sequence_option(key, model_options) and isinstance(value, (list, tuple)):
+                    for idx, val in enumerate(value):
+                        options["%s%i" % (key, idx+1)] = val
+
             return indir, options
         except:
             shutil.rmtree(indir)
