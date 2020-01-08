@@ -404,7 +404,7 @@ class FabberCl(FabberApi):
                 elif self.is_matrix_option(key, model_options):
                     # Input matrices can be given as Numpy arrays or sequences but must be
                     # passed to fabber as file names
-                    value = options.get(key)
+                    value = options.pop(key)
                     if value is None:
                         pass
                     elif isinstance(value, six.string_types):
@@ -414,9 +414,15 @@ class FabberCl(FabberApi):
                     else:
                         raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
 
-                elif self.is_sequence_option(key, model_options) and isinstance(value, (list, tuple)):
-                    for idx, val in enumerate(value):
-                        options["%s%i" % (key, idx+1)] = val
+                elif self.is_sequence_option(key, model_options):
+                    value = options.pop(key)
+                    if value is None:
+                        pass
+                    elif isinstance(value, (list, tuple)):
+                        for idx, val in enumerate(value):
+                            options["%s%i" % (key, idx+1)] = val
+                    else:
+                        options[key] = value
 
             return indir, options
         except:
