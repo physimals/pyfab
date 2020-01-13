@@ -411,6 +411,9 @@ class FabberCl(FabberApi):
                         options[key] = value
                     elif isinstance(value, (np.ndarray, collections.Sequence)):
                         options[key] = self._write_temp_matrix(value, indir)
+                    elif isinstance(value, (int, float)):
+                        # Work around fabber_core bug where evaluate-nt is defined as a matrix
+                        options[key] = value
                     else:
                         raise ValueError("Unsupported type for input matrix: %s = %s" % (key, type(value)))
 
