@@ -111,6 +111,8 @@ class FabberClRun(FabberRun):
             regexes.append(re.compile(r".*[/\\](mean_%s+)\..+" % alphanum))
         if "save-std" in options:
             regexes.append(re.compile(r".*[/\\](std_%s+)\..+" % alphanum))
+        if "save-var" in options:
+            regexes.append(re.compile(r".*[/\\](var_%s+)\..+" % alphanum))
         if "save-zstat" in options:
             regexes.append(re.compile(r".*[/\\](zstat_%s+)\..+" % alphanum))
         if "save-noise-mean" in options:
