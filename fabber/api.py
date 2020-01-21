@@ -182,7 +182,10 @@ class FabberException(RuntimeError):
             RuntimeError.__init__(self, msg)
 
     def __str__(self):
-        return "FabberException: %i: %s" % (self.errcode, self.msg)
+        if errcode is not None:
+            return "FabberException: %i: %s" % (self.errcode, self.msg)
+        else:
+            return "FabberException: %s" % self.msg
 
 class FabberRun(object):
     """
