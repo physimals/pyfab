@@ -393,7 +393,7 @@ class FabberCl(FabberApi):
                         options[key] = value
                     elif isinstance(value, (int, float)):
                         # Work around bug in some versions of fabber where some numeric options
-                        # are miscategorized as matrix options
+                        # are miscategorized as data options
                         options[key] = str(value)
                     elif isinstance(value, nib.Nifti1Image):
                         options[key] = self._write_temp_nifti(value, indir)
@@ -411,6 +411,10 @@ class FabberCl(FabberApi):
                         pass
                     elif isinstance(value, six.string_types):
                         options[key] = value
+                    elif isinstance(value, (int, float)):
+                        # Work around bug in some versions of fabber where some numeric options
+                        # are miscategorized as matrix options
+                        options[key] = str(value)
                     elif isinstance(value, (np.ndarray, collections.Sequence)):
                         options[key] = self._write_temp_matrix(value, indir)
                     elif isinstance(value, (int, float)):
