@@ -136,13 +136,13 @@ class FabberClRun(FabberRun):
                 match = regex.match(fname)
                 if match:
                     nii = nib.load(fname)
-                    data[match.group(1)] = nii.get_data()
+                    data[match.group(1)] = np.array(nii.get_data())
 
         FabberRun.__init__(self, data, log)
 
         # Assuming we managed to load some data at some point, use the NII header
         # as the reference for future saving of the data to an output directory
-        self.ref_nii = nii
+        self.nii_header = nii.header.copy()
 
 class FabberCl(FabberApi):
     """

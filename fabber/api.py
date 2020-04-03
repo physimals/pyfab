@@ -200,7 +200,7 @@ class FabberRun(object):
         self.data = data
         self.log = log
         self.timestamp, self.timestamp_str = self._get_log_timestamp(self.log)
-        self.ref_nii = None
+        self.nii_header = None
 
     def write_to_dir(self, dirname, ref_nii=None, extension=".nii.gz"):
         """
@@ -217,14 +217,14 @@ class FabberRun(object):
         if not os.path.isdir(dirname):
             raise IOError("Specified directory '%s' exists but is not a directory" % dirname)
 
-        if ref_nii is None:
-            ref_nii = self.ref_nii
-
         if ref_nii is not None:
             header = ref_nii.header
-            affine = ref_nii.header.get_best_affine()
         else:
-            header = None
+            header = self.nii_header
+
+        if header is not None:
+            affine = header.get_best_affine()
+        else:
             affine = np.identity(4)
 
         for data_name, arr in self.data.items():
