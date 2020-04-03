@@ -511,4 +511,4 @@ class FabberApi(object):
                         param[1] = parts[1]
                 params.append(param)
         # FIXME temp to avoid incompatibility when units are not expected
-        return [params[0] for param in params]
+        return [param[0] for param in params]
