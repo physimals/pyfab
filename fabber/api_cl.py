@@ -142,7 +142,8 @@ class FabberClRun(FabberRun):
 
         # Assuming we managed to load some data at some point, use the NII header
         # as the reference for future saving of the data to an output directory
-        self.nii_header = nii.header.copy()
+        if nii is not None:
+            self.nii_header = nii.header.copy()
 
 class FabberCl(FabberApi):
     """
