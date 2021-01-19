@@ -50,7 +50,14 @@ import tempfile
 import numpy as np
 import nibabel as nib
 
-if sys.platform.startswith("win"):
+from fsl.utils.platform import platform as fslplatform
+
+if sys.platform.startswith("win") and fslplatform.fslwsl:
+    # Normally on windows we are using FSL which is Linux executables/libraries
+    _LIB_FORMAT = "lib/lib%s.so"
+    _BIN_FORMAT = "bin/%s"
+elif sys.platform.startswith("win"):
+    # Allow for possibility of native Windows binaries
     _LIB_FORMAT = "bin\\%s.dll"
     _BIN_FORMAT = "bin\\%s.exe"
 elif sys.platform.startswith("darwin"):
@@ -70,14 +77,22 @@ def percent_progress(log=sys.stdout):
         log.flush()
     return _progress
 
-def _find_file(current_value, search_dir, search_for):
+def _find_file(current_value, search_dir, search_for, debug=False):
     if current_value is not None:
+        if debug:
+            sys.stderr.write("Already have found %s (%s)\n" % (search_for, current_value))
         return current_value
     else:
         newfpath = os.path.join(search_dir, search_for)
+        if debug:
+            sys.stderr.write("Looking for %s..." % newfpath)
         if os.path.isfile(newfpath):
+            if debug:
+                sys.stderr.write("FOUND\n")
             return newfpath
         else:
+            if debug:
+                sys.stderr.write("NOT FOUND\n")
             return current_value
 
 def find_fabber(*extra_search_dirs, **kwargs):
@@ -101,8 +116,8 @@ def find_fabber(*extra_search_dirs, **kwargs):
         sys.stderr.write("Search dirs: %s\n" % search_dirs)
 
     for search_dir in search_dirs:
-        exe = _find_file(exe, search_dir, _BIN_FORMAT % "fabber")
-        lib = _find_file(lib, search_dir, _LIB_FORMAT % "fabbercore_shared")
+        exe = _find_file(exe, search_dir, _BIN_FORMAT % "fabber", debug)
+        lib = _find_file(lib, search_dir, _LIB_FORMAT % "fabbercore_shared", debug)
         lib_regex = re.compile(r'.*fabber_models_(.+)\..*')
         for model_lib in glob.glob(os.path.join(search_dir, _LIB_FORMAT % "fabber_models_*")):
             group_name = lib_regex.match(model_lib).group(1).lower()

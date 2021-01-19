@@ -30,6 +30,9 @@ import six
 import numpy as np
 import nibabel as nib
 
+from fsl.utils.platform import platform as fslplatform
+from fsl.utils.run import wslcmd
+
 from .api import FabberApi, FabberException, FabberRun
 
 # Maximum size allowed in Fabber logfile to avoid multiple errors
@@ -324,9 +327,17 @@ class FabberCl(FabberApi):
             # Convert options to command line arguments
             cl_args = self._get_clargs(options)
 
+            startupinfo=None
+            if fslplatform.fslwsl:
+                cl_args.insert(0, "fabber")
+                cmdargs = wslcmd(exe, *cl_args)
+                exe, cl_args = cmdargs[0], cmdargs[1:]
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
             # Run the process and return stdout
             stdout = six.StringIO()
-            process = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process = subprocess.Popen([exe] + cl_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, startupinfo=startupinfo)
             while 1:
                 retcode = process.poll() # returns None while subprocess is running
                 line = process.stdout.readline().decode('utf-8')

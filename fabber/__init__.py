@@ -12,12 +12,12 @@ from ._version import __version__
 def Fabber(*search_dirs, **kwargs):
     """
     Get an API object for Fabber. Uses the shared lib API if available
-    otherwise falls back to the command line
+    and requested using `shlib=True`, otherwise use command line wrappers
 
     :param extra_search_dirs: Extra search directories to use to look for Fabber libraries and executables
     """
     corelib, coreexe, libs, exes = find_fabber(*search_dirs, **kwargs)
-    if corelib:
+    if corelib and kwargs.get("shlib"):
         return FabberShlib(core_lib=corelib, model_libs=libs, **kwargs)
     else:
         return FabberCl(core_exe=coreexe, model_exes=exes, **kwargs)
