@@ -98,12 +98,12 @@ class FabberClRun(FabberRun):
     Sets the attributes log, timestamp, timestamp_str and data
     """
 
-    def __init__(self, outdir, options, extra_outputs):
+    def __init__(self, outdir, options, extra_outputs, max_log_size=MAX_LOG_SIZE):
         """
         :param outdir: Directory containing Fabber output
         """
         with open(os.path.join(outdir, "logfile"), "r") as logfile:
-            log = logfile.read(MAX_LOG_SIZE)
+            log = logfile.read(max_log_size)
 
         data = {}
         alphanum = "[a-zA-Z0-9_]"
@@ -250,6 +250,7 @@ class FabberCl(FabberApi):
         if "data" not in options:
             raise ValueError("Main voxel data not provided")
 
+        max_log_size = kwargs.pop("max_log_size", MAX_LOG_SIZE)
         if progress_cb is not None:
             stdout_handler = _progress_stdout_handler(progress_cb)
         else:
@@ -261,7 +262,7 @@ class FabberCl(FabberApi):
             out_subdir = os.path.join(outdir, "fabout")
             extra_outputs = self.get_model_outputs(options)
             self._call(options, output=out_subdir, stdout_handler=stdout_handler, simple_output=True, data_options=True)
-            return FabberClRun(out_subdir, self._normalize_options(options), extra_outputs)
+            return FabberClRun(out_subdir, self._normalize_options(options), extra_outputs, max_log_size)
         finally:
             if outdir is not None:
                 shutil.rmtree(outdir)
