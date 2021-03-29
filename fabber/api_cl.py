@@ -31,7 +31,13 @@ import numpy as np
 import nibabel as nib
 
 from fsl.utils.platform import platform as fslplatform
-from fsl.utils.run import wslcmd
+try:
+    # Not all versions of fslpy support WSL and since this is not
+    # compulsary to use pyfab we don't require it
+    from fsl.utils.run import wslcmd
+    FSLPY_HAVE_WSL=True
+except ImportError:
+    FSLPY_HAVE_WSL=False
 
 from .api import FabberApi, FabberException, FabberRun
 
@@ -329,12 +335,13 @@ class FabberCl(FabberApi):
             cl_args = self._get_clargs(options)
 
             startupinfo=None
-            if fslplatform.fslwsl:
-                cl_args.insert(0, "fabber")
-                cmdargs = wslcmd(exe, *cl_args)
-                exe, cl_args = cmdargs[0], cmdargs[1:]
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            if FSLPY_HAVE_WSL:
+                if fslplatform.fslwsl:
+                    cl_args.insert(0, "fabber")
+                    cmdargs = wslcmd(exe, *cl_args)
+                    exe, cl_args = cmdargs[0], cmdargs[1:]
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             # Run the process and return stdout
             stdout = six.StringIO()
