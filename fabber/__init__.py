@@ -7,7 +7,11 @@ from .api_shlib import FabberShlib
 from .api_cl import FabberCl
 from .model_test import self_test, generate_test_data
 from .mvn import MVN
-from ._version import __version__
+
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "github"
 
 def Fabber(*search_dirs, **kwargs):
     """
