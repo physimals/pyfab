@@ -203,9 +203,9 @@ class FabberShlib(FabberApi):
                 if value is None:
                     pass
                 elif isinstance(value, nib.Nifti1Image):
-                    data_options[key] = value.get_data()
+                    data_options[key] = value.get_fdata()
                 elif isinstance(value, six.string_types):
-                    data_options[key] = nib.load(value).get_data()
+                    data_options[key] = nib.load(value).get_fdata()
                 elif isinstance(value, np.ndarray):
                     data_options[key] = value
                 else:

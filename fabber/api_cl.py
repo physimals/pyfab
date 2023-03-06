@@ -145,7 +145,7 @@ class FabberClRun(FabberRun):
                 match = regex.match(fname)
                 if match:
                     nii = nib.load(fname)
-                    data[match.group(1)] = np.array(nii.get_data())
+                    data[match.group(1)] = np.array(nii.get_fdata())
 
         FabberRun.__init__(self, data, log)
 
